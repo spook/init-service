@@ -63,6 +63,7 @@ TBS
 
 ## install
 Basic idea: 
+
         service xyz install \
             -V path/to/sysVinit/script \
             -U path/to/upstart/stanzas \
@@ -74,17 +75,22 @@ is not given for the init system in use,
 it will synthesize an init scritp/stanza/unit and put it
 into place.  As a minimum, the executable command
 is needed:
+
         service xyz install -c /usr/bin/xyz -D -v
 
 **To be worked out:**
 Does -c take everything to the EOL as
 options for the command, or must we quote it like this:
+
         service xyz install -c '/usr/bin/xyz -D -v'
 or do we go with args options:
+
         service xyz install -c /usr/bin/xyz --arg -D --arg -v
 I'm leaning towards the first method; which is as-if one entered:
+
         service xyz install -c /usr/bin/xyz -- -D -v
 (note the --'s), or even without the -c: any left-over args are the command and its options:
+
         service xyz install /usr/bin/xyz -D -v
         service xyz install -d "My XYZ service" --restart /usr/bin/xyz -D -v
 This is kinda how the `mkjob` command works.  I'll try it this way and see how it works out.
