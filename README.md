@@ -1,2 +1,3 @@
 # service
-Updates 'service' command for SystemV, upstart, and systemd; PLUS handles install, remove actions too
+Enhances the 'service' command to support the "big three" inits: SystemV, upstart, and systemd; 
+PLUS handles install, remove actions too.
