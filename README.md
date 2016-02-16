@@ -11,7 +11,7 @@ Stops a running service; if not running, an error is emitted
 * restart -
 Stops then starts a service
 * reload -
-Sends a SIGHUP to the service, if runninggg
+Sends a SIGHUP to the service, if running
 * status -
 Displays the status of the service
 * --status-all
