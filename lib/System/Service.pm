@@ -25,7 +25,29 @@ sub new {
     return $this;
 }
 
-1;                                        # End of System::Service
+sub add {
+}
+
+sub disable {
+}
+
+sub enable {
+}
+
+sub error {
+    return shift->{error};
+}
+
+sub remove {
+}
+
+sub start {
+}
+
+sub stop {
+}
+
+1;    # End of System::Service
 
 __END__
 
