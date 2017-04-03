@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 use System::Service;
 
-plan tests => 17;
+plan tests => 18;
 
 # Force the unknown init system
 note "--- Test forced UNKNOWN init system ---";
@@ -30,15 +30,25 @@ ok $svc, "Created object";
 is $svc->error, q{}, "No errors when created";
 isnt $svc->init_system, System::Service::INIT_UNKNOWN, "init system is known: " . $svc->init_system;
 
+# Try to load a service we (hope) does not exist
+note " ";
+note "--- Try to load() bogus service";
+$svc = System::Service->new;
+$svc->load("bogus-foobarbaz");
+like $svc->error, qr{No such service}i, "Returns correct error";
+
 # Load a known (hopefully) service - ssh
+note " ";
+note "--- Load a known service ---";
+$svc = System::Service->new;
 $svc->load("ssh");
 SKIP: {
     skip "ssh service not on this system"
         unless $svc->error !~ m/no such service/i;
-    is $svc->error, q{}, "Lookup went ok";
-    is $svc->name, "ssh", "Loaded name";
-    isnt $svc->command, q{}, "Loaded command: " . $svc->command;
-    isnt $svc->type, q{}, "Loaded type: " . $svc->type;
+    is $svc->error,     q{},   "Lookup went ok";
+    is $svc->name,      "ssh", "Loaded name";
+    isnt $svc->type,    q{},   "Loaded type: " . $svc->type;
+    isnt $svc->command, q{},   "Loaded command: " . $svc->command;
 }
 
 exit 0;

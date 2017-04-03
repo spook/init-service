@@ -27,8 +27,8 @@ sub new {
         @_                          # Override or additional args
     };
     deduce_init_system($this);
-    $this->{init} = $this->{force} if $this->{force};
-    $this->{err} = "Unknown init system" if $this->{init} eq INIT_UNKNOWN;
+    $this->{init} = $this->{force}        if $this->{force};
+    $this->{err}  = "Unknown init system" if $this->{init} eq INIT_UNKNOWN;
     $class .= "::" . $this->{init};
     bless $this, $class;
     return $this;
@@ -111,7 +111,6 @@ sub stop {
 
 #       ------- o -------
 package System::Service::systemd;
-use Config::Tiny;
 our @ISA = qw/System::Service/;
 
 sub add {
@@ -127,15 +126,17 @@ sub load {
     my $this = shift;
     my $name = shift;
 
-    my $cfg = new Config::Tiny;
-    my $dat = $cfg->read("$this->{root}/etc/systemd/system/$name.service")
-           || $cfg->read("$this->{root}/run/systemd/system/$name.service")
-           || $cfg->read("$this->{root}/lib/systemd/system/$name.service")
-            ;
-    return $this->{err} = "No such service $name" unless $dat;
-    $this->{name} = $name;
-    $this->{command} = $dat->{Service}->{ExecStart};
-    $this->{type} = $dat->{Service}->{Type};
+    my @lines = qx(systemctl show $name.service 2>&1);
+    my %info = map {split(/=/, $_, 2)} @lines;
+    return $this->{err} = "No such service $name" 
+        if !%info || $info{LoadState} !~ m/loaded/i;
+    my $cmd = $info{ExecStart};
+    $cmd = $1 if $cmd =~ m{argv\[]=(.+?)\s*\;};
+    $this->{name}    = $name;
+    $this->{command} = $cmd;
+    $this->{type}    = $info{Type};
+    $this->{running} = $info{SubState} =~ m/running/i ? 1 : 0;
+    $this->{enabled} = $info{UnitFileState} =~ m/enabled/i ? 1 : 0;
 }
 
 sub remove {
