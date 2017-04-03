@@ -5,13 +5,29 @@ use warnings;
 use Test::More;
 use System::Service;
 
-plan tests => 2;
+plan tests => 12;
 
-my $svc = System::Service->new();
+# Force the unknown init system
+note "--- Test forced UNKNOWN init system ---";
+my $svc = System::Service->new(force => System::Service::INIT_UNKNOWN);
+ok $svc, "Created object";
+like $svc->error, qr{unknown init system}i, "Unknown init is an error";
+is $svc->init_system, System::Service::INIT_UNKNOWN, "correct init system";
+
+like $svc->add(),     qr{unknown init system}i, "add()     returns error as it should";
+like $svc->enable(),  qr{unknown init system}i, "enable()  returns error as it should";
+like $svc->start(),   qr{unknown init system}i, "start()   returns error as it should";
+like $svc->stop(),    qr{unknown init system}i, "stop()    returns error as it should";
+like $svc->disable(), qr{unknown init system}i, "disable() returns error as it should";
+like $svc->remove(),  qr{unknown init system}i, "remove()  returns error as it should";
+
+# Try whatever the normal one is  - non priv tests
+note " ";
+note "--- Test local system's init system ---";
+$svc = System::Service->new;
 ok $svc, "Created object";
 is $svc->error, q{}, "No errors when created";
-
-diag "Init system is ".$svc->{init};
+isnt $svc->init_system, System::Service::INIT_UNKNOWN, "init system is known: " . $svc->init_system;
 
 exit 0;
 

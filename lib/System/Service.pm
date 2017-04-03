@@ -25,6 +25,8 @@ sub new {
         @_                          # Override or additional args
     };
     deduce_init_system($this);
+    $this->{init} = $this->{force} if $this->{force};
+    $this->{err} = "Unknown init system" if $this->{init} eq INIT_UNKNOWN;
     $class .= "::" . $this->{init};
     bless $this, $class;
     return $this;
@@ -57,32 +59,36 @@ sub error {
     return shift->{err};
 }
 
+sub init_system {
+    return shift->{init};
+}
+
 #       ------- o -------
 package System::Service::unknown;
 our @ISA = qw/System::Service/;
 
 sub add {
-    return shift->{err} = "Unknown init system";
+    return shift->{err};
 }
 
 sub disable {
-    return shift->{err} = "Unknown init system";
+    return shift->{err};
 }
 
 sub enable {
-    return shift->{err} = "Unknown init system";
+    return shift->{err};
 }
 
 sub remove {
-    return shift->{err} = "Unknown init system";
+    return shift->{err};
 }
 
 sub start {
-    return shift->{err} = "Unknown init system";
+    return shift->{err};
 }
 
 sub stop {
-    return shift->{err} = "Unknown init system";
+    return shift->{err};
 }
 
 #       ------- o -------
