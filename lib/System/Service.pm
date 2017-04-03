@@ -22,6 +22,8 @@ sub new {
         name    => q{},             # Service name
         type    => q{},             # Service type normal, fork, ...
         command => q{},             # Command executable and arguments
+        enabled => 0,               # Will start on boot
+        started => 0,               # Running now
         @_                          # Override or additional args
     };
     deduce_init_system($this);
@@ -55,12 +57,24 @@ sub deduce_init_system {
     return $this->{init} = INIT_UNKNOWN;
 }
 
+sub command {
+    return shift->{command};
+}
+
 sub error {
     return shift->{err};
 }
 
 sub init_system {
     return shift->{init};
+}
+
+sub name {
+    return shift->{name};
+}
+
+sub type {
+    return shift->{type};
 }
 
 #       ------- o -------
@@ -79,6 +93,10 @@ sub enable {
     return shift->{err};
 }
 
+sub load {
+    return shift->{err};
+}
+
 sub remove {
     return shift->{err};
 }
@@ -93,6 +111,7 @@ sub stop {
 
 #       ------- o -------
 package System::Service::systemd;
+use Config::Tiny;
 our @ISA = qw/System::Service/;
 
 sub add {
@@ -102,6 +121,21 @@ sub disable {
 }
 
 sub enable {
+}
+
+sub load {
+    my $this = shift;
+    my $name = shift;
+
+    my $cfg = new Config::Tiny;
+    my $dat = $cfg->read("$this->{root}/etc/systemd/system/$name.service")
+           || $cfg->read("$this->{root}/run/systemd/system/$name.service")
+           || $cfg->read("$this->{root}/lib/systemd/system/$name.service")
+            ;
+    return $this->{err} = "No such service $name" unless $dat;
+    $this->{name} = $name;
+    $this->{command} = $dat->{Service}->{ExecStart};
+    $this->{type} = $dat->{Service}->{Type};
 }
 
 sub remove {
@@ -126,6 +160,9 @@ sub disable {
 sub enable {
 }
 
+sub load {
+}
+
 sub remove {
 }
 
@@ -146,6 +183,9 @@ sub disable {
 }
 
 sub enable {
+}
+
+sub load {
 }
 
 sub remove {
