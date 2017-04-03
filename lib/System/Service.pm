@@ -3,24 +3,28 @@ package System::Service;
 use 5.006;
 use strict;
 use warnings;
+use Cwd qw/realpath/;
 
 our $VERSION = '2017.03.13';
 
-use constant INIT_UNK  => 0;
-use constant INIT_SYSV => 1;
-use constant INIT_UPST => 2;
-use constant INIT_SYSD => 3;
+use constant INIT_UNKNOWN => "unknown";
+use constant INIT_SYSTEMV => "SysV";
+use constant INIT_UPSTART => "upstart";
+use constant INIT_SYSTEMD => "systemd";
 
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;    # Get the class name
     my $this  = {
-        err  => q{},                      # Error status
-        init => INIT_UNK,                 # Init system in use
-        name => q{},                      # Service name
-        type => q{},                      # Service type normal, fork, ...
-        desc => q{},                      # Service description
+        err     => q{},                   # Error status
+        root    => q{},                   # File-system root (blank = /)
+        init    => INIT_UNKNOWN,          # Init system in use
+        name    => q{},                   # Service name
+        type    => q{},                   # Service type normal, fork, ...
+        command => q{},                   # Command executable and arguments
+        @_                                # Override or additional args
     };
+    deduce_init_system($this);
     bless $this, $class;
     return $this;
 }
@@ -31,11 +35,34 @@ sub add {
 sub disable {
 }
 
+sub deduce_init_system {
+    my $this = shift;
+
+    # Look for systemd
+    my $ps_out = qx(ps -p 1 --no-headers -o comm 2>&1) || q{};    # 'comm' walks symlinks
+    if (   -d "$this->{root}/lib/systemd"
+        && -d "$this->{root}/etc/systemd"
+        && $ps_out =~ m{\bsystemd\b})
+    {
+        return $this->{init} = INIT_SYSTEMD;
+    }
+    my $init_ver = qx($this->{root}/sbin/init --version 2>&1) || q{};
+    if (-d "$this->{root}/etc/init"
+        && $init_ver =~ m{\bupstart\b})
+    {
+        return $this->{init} = INIT_UPSTART;
+    }
+    if (-d "$this->{root}/etc/init.d") {
+        return $this->{init} = INIT_SYSTEMV;
+    }
+    return $this->{init} = INIT_UNKNOWN;
+}
+
 sub enable {
 }
 
 sub error {
-    return shift->{error};
+    return shift->{err};
 }
 
 sub remove {

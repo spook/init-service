@@ -1,11 +1,11 @@
-#!perl -T
+#!/usr/bin/perl
 use 5.006;
 use strict;
 use warnings;
 use Test::More;
 use System::Service;
 
-plan tests => 1;
+plan tests => 2;
 
 my $svc = System::Service->new();
 ok $svc, "Created object";
