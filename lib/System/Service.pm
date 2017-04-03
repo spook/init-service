@@ -3,7 +3,6 @@ package System::Service;
 use 5.006;
 use strict;
 use warnings;
-use Cwd qw/realpath/;
 
 our $VERSION = '2017.03.13';
 
