@@ -15,24 +15,20 @@ use constant INIT_SYSTEMD => "systemd";
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;    # Get the class name
-    my $this  = {
-        err     => q{},                   # Error status
-        root    => q{},                   # File-system root (blank = /)
-        init    => INIT_UNKNOWN,          # Init system in use
-        name    => q{},                   # Service name
-        type    => q{},                   # Service type normal, fork, ...
-        command => q{},                   # Command executable and arguments
-        @_                                # Override or additional args
+    print "Class is $class\n";
+    my $this = {
+        err     => q{},             # Error status
+        root    => q{},             # File-system root (blank = /)
+        init    => INIT_UNKNOWN,    # Init system in use
+        name    => q{},             # Service name
+        type    => q{},             # Service type normal, fork, ...
+        command => q{},             # Command executable and arguments
+        @_                          # Override or additional args
     };
     deduce_init_system($this);
+    $class .= "::" . $this->{init};
     bless $this, $class;
     return $this;
-}
-
-sub add {
-}
-
-sub disable {
 }
 
 sub deduce_init_system {
@@ -58,11 +54,49 @@ sub deduce_init_system {
     return $this->{init} = INIT_UNKNOWN;
 }
 
-sub enable {
-}
-
 sub error {
     return shift->{err};
+}
+
+#       ------- o -------
+package System::Service::unknown;
+our @ISA = qw/System::Service/;
+
+sub add {
+    return shift->{err} = "Unknown init system";
+}
+
+sub disable {
+    return shift->{err} = "Unknown init system";
+}
+
+sub enable {
+    return shift->{err} = "Unknown init system";
+}
+
+sub remove {
+    return shift->{err} = "Unknown init system";
+}
+
+sub start {
+    return shift->{err} = "Unknown init system";
+}
+
+sub stop {
+    return shift->{err} = "Unknown init system";
+}
+
+#       ------- o -------
+package System::Service::systemd;
+our @ISA = qw/System::Service/;
+
+sub add {
+}
+
+sub disable {
+}
+
+sub enable {
 }
 
 sub remove {
@@ -74,7 +108,51 @@ sub start {
 sub stop {
 }
 
-1;    # End of System::Service
+#       ------- o -------
+package System::Service::upstart;
+our @ISA = qw/System::Service/;
+
+sub add {
+}
+
+sub disable {
+}
+
+sub enable {
+}
+
+sub remove {
+}
+
+sub start {
+}
+
+sub stop {
+}
+
+#       ------- o -------
+package System::Service::SysV;
+our @ISA = qw/System::Service/;
+
+sub add {
+}
+
+sub disable {
+}
+
+sub enable {
+}
+
+sub remove {
+}
+
+sub start {
+}
+
+sub stop {
+}
+
+1;
 
 __END__
 
