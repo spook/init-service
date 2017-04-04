@@ -114,6 +114,38 @@ package System::Service::systemd;
 our @ISA = qw/System::Service/;
 
 sub add {
+    my $this = shift;
+    my %args = @_;
+    my $name = $args{name};
+    my $command = $args{command};
+    return $this->{err} = "Insufficient argument; name and command required"
+        if !$name || !$command;
+
+    # Create unit file
+    my $unitfile = "$this->{root}/lib/systemd/system/$name.service";
+    return $this->{err} = "Service already exists"
+        if -e $unitfile && !$args{force};
+
+    open(UF, '>', $unitfile)
+        or return $this->{err} = "Cannot create unit file: $!";
+    print UF "[Unit]\n";
+    print UF "Description=" . ($args{description}||q{}) . "\n";
+
+    print UF "\n";
+    print UF "[Service]\n";
+    print UF "ExecStart=$command\n";
+    print UF "Type=" . ($args{type}||"normal") . "\n";
+
+    print UF "\n";
+    print UF "[Install]\n";
+    print UF "WantedBy=multi-user.target\n";    # TODO... how to map this?
+
+    close UF;
+
+    # Copy attributes into ourselves
+        # TODO...
+
+    return $this->{err} = q{};
 }
 
 sub disable {
@@ -126,7 +158,7 @@ sub load {
     my $this = shift;
     my $name = shift;
 
-    my @lines = qx(systemctl show $name.service 2>&1);
+    my @lines = qx(systemctl show $name.service 2>&1);  # XXX Do instead? $this-{root}/bin/systemctl
     my %info = map {split(/=/, $_, 2)} @lines;
     return $this->{err} = "No such service $name" 
         if !%info || $info{LoadState} !~ m/loaded/i;
