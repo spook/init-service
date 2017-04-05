@@ -5,11 +5,11 @@ use warnings;
 use Test::More;
 use System::Service;
 
-plan tests => 24;
+plan tests => 68;
 
 # All these tests require root (TODO: or an alternate file system root)
 SKIP: {
-    skip "*** These tests must be run as root", 12
+    skip "*** These tests must be run as root", 68
         if $>;
 
     # Add & remove
@@ -19,7 +19,7 @@ SKIP: {
         if $svc->error;
     ok $svc, "Service object created";
     my $svc_nam = "test-020";
-    my $svc_cmd = "/bin/sleep 21";
+    my $svc_cmd = "/bin/sleep 5";
     my $svc_tit = "Test service for System::Service test #020";
     my $svc_typ = "simple";
     $svc->add(
@@ -28,7 +28,7 @@ SKIP: {
         command => $svc_cmd,
         title   => $svc_tit
     );
-    is $svc->error, q{}, "Service added";
+    is $svc->error, q{}, "add() service status";
     is $svc->name(),    $svc_nam, "  Name correct";
     is $svc->command(), $svc_cmd, "  Command correct";
     is $svc->title(),   $svc_tit, "  Title correct";
@@ -36,13 +36,91 @@ SKIP: {
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled for boot";
 
-    # TODO check object's attributes match
-
     # Load it back as a new object
     $svc = System::Service->new();    # make new object
     ok $svc, "Service object created for load";
     $svc->load($svc_nam);
-    is $svc->error, q{}, "Load status OK";
+    is $svc->error, q{}, "load() status";
+    is $svc->name(),    $svc_nam, "  Name correct";
+    is $svc->command(), $svc_cmd, "  Command correct";
+    is $svc->title(),   $svc_tit, "  Title correct";
+    is $svc->type(),    $svc_typ, "  Type correct";
+    ok !$svc->running(), "  Not running";
+    ok !$svc->enabled(), "  Not enabled for boot";
+
+    # Enable it for boot
+    note " ";
+    note "--- Enable boot of the dummy service ---";
+    $svc->enable();
+    is $svc->error, q{}, "enable() status";
+    ok !$svc->running(), "  Not running";
+    ok $svc->enabled(),  "  Is enabled for boot";
+
+    # Reload, check if enabled
+    $svc = System::Service->new();    # make new object
+    ok $svc, "New object to check above";
+    $svc->load($svc_nam);
+    is $svc->error, q{}, "re-load() status";
+    is $svc->name(),    $svc_nam, "  Name correct";
+    is $svc->command(), $svc_cmd, "  Command correct";
+    is $svc->title(),   $svc_tit, "  Title correct";
+    is $svc->type(),    $svc_typ, "  Type correct";
+    ok !$svc->running(), "  Not running";
+    ok $svc->enabled(),  "  Is enabled for boot";
+
+    # Disable from boot
+    note " ";
+    note "--- Disable boot of the dummy service ---";
+    $svc->disable();
+    is $svc->error, q{}, "disable() status";
+    ok !$svc->running(), "  Not running";
+    ok !$svc->enabled(), "  Not enabled for boot";
+
+    # Reload, check if disabled
+    $svc = System::Service->new();    # make new object
+    ok $svc, "New object to check above";
+    $svc->load($svc_nam);
+    is $svc->error, q{}, "  re-load() status";
+    is $svc->name(),    $svc_nam, "  Name correct";
+    is $svc->command(), $svc_cmd, "  Command correct";
+    is $svc->title(),   $svc_tit, "  Title correct";
+    is $svc->type(),    $svc_typ, "  Type correct";
+    ok !$svc->running(), "  Not running";
+    ok !$svc->enabled(), "  Not enabled for boot";
+
+    # Start it
+    note " ";
+    note "--- Start the dummy service ---";
+    $svc->start();
+    is $svc->error, q{}, "start() status";
+    ok $svc->running(),  "  Is running";
+    ok !$svc->enabled(), "  Not enabled for boot";
+
+    # Reload, check if running
+    $svc = System::Service->new();    # make new object
+    ok $svc, "New object to check above";
+    $svc->load($svc_nam);
+    is $svc->error, q{}, "  re-load() status";
+    is $svc->name(),    $svc_nam, "  Name correct";
+    is $svc->command(), $svc_cmd, "  Command correct";
+    is $svc->title(),   $svc_tit, "  Title correct";
+    is $svc->type(),    $svc_typ, "  Type correct";
+    ok $svc->running(),  "  Is running";
+    ok !$svc->enabled(), "  Not enabled for boot";
+
+    # Stop it
+    note " ";
+    note "--- Stop the dummy service ---";
+    $svc->stop();
+    is $svc->error, q{}, "stop() status";
+    ok !$svc->running(), "  Not running";
+    ok !$svc->enabled(), "  Not enabled for boot";
+
+    # Reload, check if stopped
+    $svc = System::Service->new();    # make new object
+    ok $svc, "New object to check above";
+    $svc->load($svc_nam);
+    is $svc->error, q{}, "  re-load() status";
     is $svc->name(),    $svc_nam, "  Name correct";
     is $svc->command(), $svc_cmd, "  Command correct";
     is $svc->title(),   $svc_tit, "  Title correct";

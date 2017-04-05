@@ -14,7 +14,6 @@ use constant INIT_SYSTEMD => "systemd";
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;    # Get the class name
-    print "Class is $class\n";
     my $this = {
         err     => q{},             # Error status
         root    => q{},             # File-system root (blank = /)
@@ -61,7 +60,7 @@ sub deduce_initsys {
 
 # Accessors
 sub command {return shift->{command};}
-sub enabled {return shift->{enable};}
+sub enabled {return shift->{enabled};}
 sub error   {return shift->{err};}
 sub initsys {return shift->{initsys};}
 sub name    {return shift->{name};}
@@ -213,7 +212,7 @@ sub stop {
     my $out = qx(systemctl stop $this->{name}.service 2>&1);
     return $this->{err} = "Cannot stop $this->{name}: $!\n\t$out"
         if $?;
-    $this->{running} = 1;
+    $this->{running} = 0;
     return $this->{err} = q{};
 }
 
