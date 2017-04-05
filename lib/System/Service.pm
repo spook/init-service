@@ -184,7 +184,14 @@ sub remove {
     return $this->{err} = "Service does not exist: $name"
         if !-e $unitfile && !$args{force};
     my $n = unlink $unitfile;
-    return $this->{err} = $n ? q{} : "Cannot remove service $name: $!";
+    return $this->{err} = "Cannot remove service $name: $!" unless $n;
+    $this->{name}    = q{};
+    $this->{command} = q{};
+    $this->{title}   = q{};
+    $this->{type}    = q{};
+    $this->{running} = 0;
+    $this->{enabled} = 0;
+    return $this->{err} = q{};
 }
 
 sub start {
