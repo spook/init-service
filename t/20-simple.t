@@ -5,11 +5,11 @@ use warnings;
 use Test::More;
 use System::Service;
 
-plan tests => 68;
+plan tests => 69;
 
 # All these tests require root (TODO: or an alternate file system root)
 SKIP: {
-    skip "*** These tests must be run as root", 68
+    skip "*** These tests must be run as root", 69
         if $>;
 
     # Add & remove
@@ -107,6 +107,11 @@ SKIP: {
     is $svc->type(),    $svc_typ, "  Type correct";
     ok $svc->running(),  "  Is running";
     ok !$svc->enabled(), "  Not enabled for boot";
+
+    # Look for it on the system
+    sleep 1;    # give it time to start, if system is busy
+    my $out = qx(ps --no-header wax | /bin/grep -v grep | /bin/grep '$svc_cmd' 2>&1);
+    isnt $out, q{}, "  Service found on system";
 
     # Stop it
     note " ";
