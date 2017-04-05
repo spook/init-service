@@ -18,7 +18,7 @@ sub new {
     my $this = {
         err     => q{},             # Error status
         root    => q{},             # File-system root (blank = /)
-        init    => INIT_UNKNOWN,    # Init system in use
+        initsys => INIT_UNKNOWN,    # Init system in use
         name    => q{},             # Service name
         title   => q{},             # Service description or title
         type    => q{},             # Service type normal, fork, ...
@@ -28,8 +28,8 @@ sub new {
         @_                          # Override or additional args
     };
     deduce_initsys($this);
-    $this->{initsys} = $this->{force}        if $this->{force};
-    $this->{err}  = "Unknown init system" if $this->{initsys} eq INIT_UNKNOWN;
+    $this->{initsys} = $this->{force} if $this->{force};
+    $this->{err} = "Unknown init system" if $this->{initsys} eq INIT_UNKNOWN;
     $class .= "::" . $this->{initsys};
     bless $this, $class;
     return $this;
@@ -90,6 +90,8 @@ sub add {
     my $this    = shift;
     my %args    = @_;
     my $name    = $args{name};
+    my $title   = $args{title} || q{};
+    my $type    = $args{type}  || "simple";
     my $command = $args{command};
     return $this->{err} = "Insufficient argument; name and command required"
         if !$name || !$command;
@@ -102,12 +104,12 @@ sub add {
     open(UF, '>', $unitfile)
         or return $this->{err} = "Cannot create unit file: $!";
     print UF "[Unit]\n";
-    print UF "Description=" . ($args{title} || q{}) . "\n";
+    print UF "Description=$title\n";
 
     print UF "\n";
     print UF "[Service]\n";
     print UF "ExecStart=$command\n";
-    print UF "Type=" . ($args{type} || "simple") . "\n";
+    print UF "Type=$type\n";
 
     print UF "\n";
     print UF "[Install]\n";
@@ -116,15 +118,34 @@ sub add {
     close UF;
 
     # Copy attributes into ourselves
-    # TODO...
+    $this->{name}  = $name;
+    $this->{title} = $title;
+    $this->{type}  = $type;
+    $this->{command} = $command;
 
     return $this->{err} = q{};
 }
 
 sub disable {
+    my $this = shift;
+    return $this->{err} = "First load or add a service"
+        unless $this->{name};
+    my $out = qx(systemctl disable $this->{name}.service 2>&1);
+    return $this->{err} = "Cannot disable $this->{name}: $!\n\t$out"
+        if $?;
+    $this->{enabled} = 0;
+    return $this->{err} = q{};
 }
 
 sub enable {
+    my $this = shift;
+    return $this->{err} = "First load or add a service"
+        unless $this->{name};
+    my $out = qx(systemctl enable $this->{name}.service 2>&1);
+    return $this->{err} = "Cannot enable $this->{name}: $!\n\t$out"
+        if $?;
+    $this->{enabled} = 1;
+    return $this->{err} = q{};
 }
 
 sub load {
@@ -167,9 +188,26 @@ sub remove {
 }
 
 sub start {
+    my $this = shift;
+    return $this->{err} = "First load or add a service"
+        unless $this->{name};
+    my $out = qx(systemctl start $this->{name}.service 2>&1);
+    return $this->{err} = "Cannot start $this->{name}: $!\n\t$out"
+        if $?;
+    $this->{running} = 1;
+    return $this->{err} = q{};
+
 }
 
 sub stop {
+    my $this = shift;
+    return $this->{err} = "First load or add a service"
+        unless $this->{name};
+    my $out = qx(systemctl stop $this->{name}.service 2>&1);
+    return $this->{err} = "Cannot stop $this->{name}: $!\n\t$out"
+        if $?;
+    $this->{running} = 1;
+    return $this->{err} = q{};
 }
 
 #       ------- o -------
