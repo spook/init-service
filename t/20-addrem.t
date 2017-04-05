@@ -9,7 +9,7 @@ plan tests => 12;
 
 # All these tests require root (TODO: or an alternate file system root)
 SKIP: {
-    skip "*** These tests must be run as root", 11
+    skip "*** These tests must be run as root", 12
         if $>;
 
     # Add & remove
