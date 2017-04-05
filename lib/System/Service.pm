@@ -136,7 +136,7 @@ sub add {
 
     # Create unit file
     my $unitfile = "$this->{root}/lib/systemd/system/$name.service";
-    return $this->{err} = "Service already exists"
+    return $this->{err} = "Service already exists: $name"
         if -e $unitfile && !$args{force};
 
     open(UF, '>', $unitfile)
@@ -189,6 +189,20 @@ sub load {
 }
 
 sub remove {
+    my $this = shift;
+    my $name = shift;
+    my %args = @_;
+
+    # If we're removing it, we must first insure its stopped and disabled
+    $this->stop($name);      #ignore errors except...? XXX
+    $this->disable($name);
+
+    # Now remove the unit file(s)
+    my $unitfile = "$this->{root}/lib/systemd/system/$name.service";
+    return $this->{err} = "Service does not exist: $name"
+        if !-e $unitfile && !$args{force};
+    my $n = unlink $unitfile;
+    return $this->{err} = $n ? q{} : "Cannot remove service $name: $!";
 }
 
 sub start {

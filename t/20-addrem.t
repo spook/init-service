@@ -5,11 +5,11 @@ use warnings;
 use Test::More;
 use System::Service;
 
-plan tests => 18;
+plan tests => 11;
 
 # All these tests require root (TODO: or an alternate file system root)
 SKIP: {
-    skip "*** These tests must be run as root", 7
+    skip "*** These tests must be run as root", 11
         if $>;
 
     # Add & remove
@@ -28,7 +28,7 @@ SKIP: {
     # TODO check object's attributes match
 
     # Load it back
-    $svc = System::Service->new();
+    $svc = System::Service->new();  # make new object
     ok $svc, "Service object created for load";
     $svc->load($svc_nam);
     is $svc->error, q{}, "Load status OK";
@@ -37,7 +37,17 @@ SKIP: {
     is $svc->title(), $svc_tit, "Title correct";
     ok !$svc->running(), "Not running";
     ok !$svc->enabled(), "Not enabled for boot";
-    
+
+    # Remove it
+    note " ";
+    note "--- Remove the dummy service ---";
+    $svc = System::Service->new();  # make new object
+    ok $svc, "Service object created for remove";
+    $svc->remove($svc_nam);
+    is $svc->error, q{}, "Remove status OK";
+    # TODO: check for empty attributes
+
+
 }
 
 
