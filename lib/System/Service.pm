@@ -7,9 +7,9 @@ use warnings;
 our $VERSION = '2017.03.13';
 
 use constant INIT_UNKNOWN => "unknown";
-use constant INIT_SYSTEMV => "SysV";
+use constant initsysV => "SysV";
 use constant INIT_UPSTART => "upstart";
-use constant INIT_SYSTEMD => "systemd";
+use constant initsysD => "systemd";
 
 sub new {
     my $proto = shift;
@@ -27,7 +27,7 @@ sub new {
         started => 0,               # Running now
         @_                          # Override or additional args
     };
-    deduce_init_system($this);
+    deduce_initsys($this);
     $this->{init} = $this->{force}        if $this->{force};
     $this->{err}  = "Unknown init system" if $this->{init} eq INIT_UNKNOWN;
     $class .= "::" . $this->{init};
@@ -35,16 +35,17 @@ sub new {
     return $this;
 }
 
-sub deduce_init_system {
+sub deduce_initsys {
     my $this = shift;
 
     # Look for systemd
-    my $ps_out = qx(ps -p 1 --no-headers -o comm 2>&1) || q{};    # 'comm' walks symlinks
+    my $ps_out = qx(ps -p 1 --no-headers -o comm 2>&1)
+        || q{};    # 'comm' walks symlinks
     if (   -d "$this->{root}/lib/systemd"
         && -d "$this->{root}/etc/systemd"
         && $ps_out =~ m{\bsystemd\b})
     {
-        return $this->{init} = INIT_SYSTEMD;
+        return $this->{init} = initsysD;
     }
     my $init_ver = qx($this->{root}/sbin/init --version 2>&1) || q{};
     if (-d "$this->{root}/etc/init"
@@ -53,42 +54,20 @@ sub deduce_init_system {
         return $this->{init} = INIT_UPSTART;
     }
     if (-d "$this->{root}/etc/init.d") {
-        return $this->{init} = INIT_SYSTEMV;
+        return $this->{init} = initsysV;
     }
     return $this->{init} = INIT_UNKNOWN;
 }
 
-sub command {
-    return shift->{command};
-}
-
-sub enabled {
-    return shift->{enable};
-}
-
-sub error {
-    return shift->{err};
-}
-
-sub init_system {
-    return shift->{init};
-}
-
-sub name {
-    return shift->{name};
-}
-
-sub running {
-    return shift->{running};
-}
-
-sub title {
-    return shift->{title};
-}
-
-sub type {
-    return shift->{type};
-}
+# Accessors
+sub command {return shift->{command};}
+sub enabled {return shift->{enable};}
+sub error   {return shift->{err};}
+sub initsys {return shift->{init};}
+sub name    {return shift->{name};}
+sub running {return shift->{running};}
+sub title   {return shift->{title};}
+sub type    {return shift->{type};}
 
 #       ------- o -------
 package System::Service::unknown;
@@ -127,9 +106,9 @@ package System::Service::systemd;
 our @ISA = qw/System::Service/;
 
 sub add {
-    my $this = shift;
-    my %args = @_;
-    my $name = $args{name};
+    my $this    = shift;
+    my %args    = @_;
+    my $name    = $args{name};
     my $command = $args{command};
     return $this->{err} = "Insufficient argument; name and command required"
         if !$name || !$command;
@@ -142,12 +121,12 @@ sub add {
     open(UF, '>', $unitfile)
         or return $this->{err} = "Cannot create unit file: $!";
     print UF "[Unit]\n";
-    print UF "Description=" . ($args{title}||q{}) . "\n";
+    print UF "Description=" . ($args{title} || q{}) . "\n";
 
     print UF "\n";
     print UF "[Service]\n";
     print UF "ExecStart=$command\n";
-    print UF "Type=" . ($args{type}||"normal") . "\n";
+    print UF "Type=" . ($args{type} || "simple") . "\n";
 
     print UF "\n";
     print UF "[Install]\n";
@@ -156,7 +135,7 @@ sub add {
     close UF;
 
     # Copy attributes into ourselves
-        # TODO...
+    # TODO...
 
     return $this->{err} = q{};
 }
@@ -171,9 +150,10 @@ sub load {
     my $this = shift;
     my $name = shift;
 
-    my @lines = qx(systemctl show $name.service 2>&1);  # XXX Do instead? $this-{root}/bin/systemctl
+    my @lines = qx(systemctl show $name.service 2>&1)
+        ;    # XXX Do instead? $this-{root}/bin/systemctl
     my %info = map {split(/=/, $_, 2)} @lines;
-    return $this->{err} = "No such service $name" 
+    return $this->{err} = "No such service $name"
         if !%info || $info{LoadState} !~ m/loaded/i;
     my $cmd = $info{ExecStart};
     $cmd = $1 if $cmd =~ m{argv\[]=(.+?)\s*\;};
@@ -194,7 +174,7 @@ sub remove {
     my %args = @_;
 
     # If we're removing it, we must first insure its stopped and disabled
-    $this->stop($name);      #ignore errors except...? XXX
+    $this->stop($name);    #ignore errors except...? XXX
     $this->disable($name);
 
     # Now remove the unit file(s)

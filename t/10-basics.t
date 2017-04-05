@@ -12,7 +12,7 @@ note "--- Test forced UNKNOWN init system ---";
 my $svc = System::Service->new(force => System::Service::INIT_UNKNOWN);
 ok $svc, "Created object";
 like $svc->error, qr{unknown init system}i, "Unknown init is an error";
-is $svc->init_system, System::Service::INIT_UNKNOWN, "correct init system";
+is $svc->initsys, System::Service::INIT_UNKNOWN, "correct init system";
 
 like $svc->load(),    qr{unknown init system}i, "load()    returns error as it should";
 like $svc->add(),     qr{unknown init system}i, "add()     returns error as it should";
@@ -28,7 +28,7 @@ note "--- Test local system's init system ---";
 $svc = System::Service->new;
 ok $svc, "Created object";
 is $svc->error, q{}, "No errors when created";
-isnt $svc->init_system, System::Service::INIT_UNKNOWN, "init system is known: " . $svc->init_system;
+isnt $svc->initsys, System::Service::INIT_UNKNOWN, "init system is known: " . $svc->initsys;
 
 # Try to load a service we (hope) does not exist
 note " ";
@@ -43,7 +43,7 @@ note "--- Load a known service ---";
 $svc = System::Service->new;
 $svc->load("ssh");
 SKIP: {
-    skip "ssh service not on this system",perl check if root 4
+    skip "ssh service not on this system", 4
         unless $svc->error !~ m/no such service/i;
     is $svc->error,     q{},   "Lookup went ok";
     is $svc->name,      "ssh", "Loaded name";

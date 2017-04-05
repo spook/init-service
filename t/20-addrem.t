@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 use System::Service;
 
-plan tests => 11;
+plan tests => 12;
 
 # All these tests require root (TODO: or an alternate file system root)
 SKIP: {
@@ -21,37 +21,40 @@ SKIP: {
     my $svc_nam = "test-020";
     my $svc_cmd = "/bin/sleep 21";
     my $svc_tit = "Test service for System::Service test #020";
-    $svc->add(name => $svc_nam,
-              command => $svc_cmd, 
-              title => $svc_tit);
+    my $svc_typ = "simple";
+    $svc->add(
+        name    => $svc_nam,
+        type    => $svc_typ,
+        command => $svc_cmd,
+        title   => $svc_tit
+    );
     is $svc->error, q{}, "Service added";
+
     # TODO check object's attributes match
 
-    # Load it back
-    $svc = System::Service->new();  # make new object
+    # Load it back as a new object
+    $svc = System::Service->new();    # make new object
     ok $svc, "Service object created for load";
     $svc->load($svc_nam);
     is $svc->error, q{}, "Load status OK";
-    is $svc->name(), $svc_nam, "Name correct";
+    is $svc->name(),    $svc_nam, "Name correct";
     is $svc->command(), $svc_cmd, "Command correct";
-    is $svc->title(), $svc_tit, "Title correct";
+    is $svc->title(),   $svc_tit, "Title correct";
+    is $svc->type(),    $svc_typ, "Type correct";
     ok !$svc->running(), "Not running";
     ok !$svc->enabled(), "Not enabled for boot";
 
     # Remove it
     note " ";
     note "--- Remove the dummy service ---";
-    $svc = System::Service->new();  # make new object
+    $svc = System::Service->new();    # make new object
     ok $svc, "Service object created for remove";
     $svc->remove($svc_nam);
     is $svc->error, q{}, "Remove status OK";
+
     # TODO: check for empty attributes
 
-
 }
-
-
-
 
 exit 0;
 
