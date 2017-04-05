@@ -7,9 +7,9 @@ use warnings;
 our $VERSION = '2017.03.13';
 
 use constant INIT_UNKNOWN => "unknown";
-use constant initsysV => "SysV";
+use constant INIT_SYSTEMV => "SysV";
 use constant INIT_UPSTART => "upstart";
-use constant initsysD => "systemd";
+use constant INIT_SYSTEMD => "systemd";
 
 sub new {
     my $proto = shift;
@@ -28,9 +28,9 @@ sub new {
         @_                          # Override or additional args
     };
     deduce_initsys($this);
-    $this->{init} = $this->{force}        if $this->{force};
-    $this->{err}  = "Unknown init system" if $this->{init} eq INIT_UNKNOWN;
-    $class .= "::" . $this->{init};
+    $this->{initsys} = $this->{force}        if $this->{force};
+    $this->{err}  = "Unknown init system" if $this->{initsys} eq INIT_UNKNOWN;
+    $class .= "::" . $this->{initsys};
     bless $this, $class;
     return $this;
 }
@@ -45,25 +45,25 @@ sub deduce_initsys {
         && -d "$this->{root}/etc/systemd"
         && $ps_out =~ m{\bsystemd\b})
     {
-        return $this->{init} = initsysD;
+        return $this->{initsys} = INIT_SYSTEMD;
     }
     my $init_ver = qx($this->{root}/sbin/init --version 2>&1) || q{};
     if (-d "$this->{root}/etc/init"
         && $init_ver =~ m{\bupstart\b})
     {
-        return $this->{init} = INIT_UPSTART;
+        return $this->{initsys} = INIT_UPSTART;
     }
     if (-d "$this->{root}/etc/init.d") {
-        return $this->{init} = initsysV;
+        return $this->{initsys} = INIT_SYSTEMV;
     }
-    return $this->{init} = INIT_UNKNOWN;
+    return $this->{initsys} = INIT_UNKNOWN;
 }
 
 # Accessors
 sub command {return shift->{command};}
 sub enabled {return shift->{enable};}
 sub error   {return shift->{err};}
-sub initsys {return shift->{init};}
+sub initsys {return shift->{initsys};}
 sub name    {return shift->{name};}
 sub running {return shift->{running};}
 sub title   {return shift->{title};}
@@ -73,33 +73,14 @@ sub type    {return shift->{type};}
 package System::Service::unknown;
 our @ISA = qw/System::Service/;
 
-sub add {
-    return shift->{err};
-}
-
-sub disable {
-    return shift->{err};
-}
-
-sub enable {
-    return shift->{err};
-}
-
-sub load {
-    return shift->{err};
-}
-
-sub remove {
-    return shift->{err};
-}
-
-sub start {
-    return shift->{err};
-}
-
-sub stop {
-    return shift->{err};
-}
+# Return the error from the constructor
+sub add     {return shift->{err};}
+sub disable {return shift->{err};}
+sub enable  {return shift->{err};}
+sub load    {return shift->{err};}
+sub remove  {return shift->{err};}
+sub start   {return shift->{err};}
+sub stop    {return shift->{err};}
 
 #       ------- o -------
 package System::Service::systemd;
