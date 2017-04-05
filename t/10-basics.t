@@ -43,7 +43,7 @@ note "--- Load a known service ---";
 $svc = System::Service->new;
 $svc->load("ssh");
 SKIP: {
-    skip "ssh service not on this system"
+    skip "ssh service not on this system",perl check if root 4
         unless $svc->error !~ m/no such service/i;
     is $svc->error,     q{},   "Lookup went ok";
     is $svc->name,      "ssh", "Loaded name";

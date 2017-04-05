@@ -20,6 +20,7 @@ sub new {
         root    => q{},             # File-system root (blank = /)
         init    => INIT_UNKNOWN,    # Init system in use
         name    => q{},             # Service name
+        title   => q{},             # Service description or title
         type    => q{},             # Service type normal, fork, ...
         command => q{},             # Command executable and arguments
         enabled => 0,               # Will start on boot
@@ -61,6 +62,10 @@ sub command {
     return shift->{command};
 }
 
+sub enabled {
+    return shift->{enable};
+}
+
 sub error {
     return shift->{err};
 }
@@ -71,6 +76,14 @@ sub init_system {
 
 sub name {
     return shift->{name};
+}
+
+sub running {
+    return shift->{running};
+}
+
+sub title {
+    return shift->{title};
 }
 
 sub type {
@@ -129,7 +142,7 @@ sub add {
     open(UF, '>', $unitfile)
         or return $this->{err} = "Cannot create unit file: $!";
     print UF "[Unit]\n";
-    print UF "Description=" . ($args{description}||q{}) . "\n";
+    print UF "Description=" . ($args{title}||q{}) . "\n";
 
     print UF "\n";
     print UF "[Service]\n";
@@ -166,9 +179,13 @@ sub load {
     $cmd = $1 if $cmd =~ m{argv\[]=(.+?)\s*\;};
     $this->{name}    = $name;
     $this->{command} = $cmd;
+    $this->{title}   = $info{Description};
     $this->{type}    = $info{Type};
     $this->{running} = $info{SubState} =~ m/running/i ? 1 : 0;
     $this->{enabled} = $info{UnitFileState} =~ m/enabled/i ? 1 : 0;
+    foreach my $k (qw/command title type/) {
+        chomp $this->{$k};
+    }
 }
 
 sub remove {
