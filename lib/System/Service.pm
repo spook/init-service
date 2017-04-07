@@ -38,6 +38,16 @@ sub new {
     }
     $class .= "::" . $this->{initsys};
     bless $this, $class;
+
+    # Create or load on new
+    if ($this->{name} && $this->{command}) {
+        $this->add(
+            @_);
+    }
+    elsif ($this->{name}) {
+        $this->load($this->{name});
+    }
+
     return $this;
 }
 
@@ -46,7 +56,7 @@ sub deduce_initsys {
 
     # Look for systemd
     my $ps_out = qx(ps -p 1 --no-headers -o comm 2>&1)
-        || q{};                                     # 'comm' walks symlinks
+        || q{};    # 'comm' walks symlinks
     if (   -d "$this->{root}/lib/systemd"
         && -d "$this->{root}/etc/systemd"
         && $ps_out =~ m{\bsystemd\b})
@@ -104,13 +114,14 @@ package System::Service::systemd;
 our @ISA = qw/System::Service/;
 
 sub add {
-    my $this    = shift;
-    my %args    = @_;
+    my $this = shift;
+    my %args = ();
+    _process_args(\%args, @_);
     my $name    = $args{name};
-    my $title   = $args{title} || q{};
+    my $title   = $args{title} // q{};       #/
     my $type    = $args{type} || "simple";
     my $command = $args{command};
-    return $this->{err} = "Insufficient argument; name and command required"
+    return $this->{err} = "Insufficient arguments; name and command required"
         if !$name || !$command;
 
     # Create unit file
@@ -189,7 +200,8 @@ sub load {
 sub remove {
     my $this = shift;
     my $name = shift;
-    my %args = @_;
+    my %args;
+    _process_args(\%args, @_);
 
     # If we're removing it, we must first insure its stopped and disabled
     $this->stop($name);    #ignore errors except...? XXX
