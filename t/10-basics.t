@@ -45,10 +45,10 @@ $svc->load("ssh");
 SKIP: {
     skip "ssh service not on this system", 4
         unless $svc->error !~ m/no such service/i;
-    is $svc->error,     q{},   "Lookup went ok";
-    is $svc->name,      "ssh", "Loaded name";
-    isnt $svc->type,    q{},   "Loaded type: " . $svc->type;
-    isnt $svc->run, q{},   "Loaded run: " . $svc->run;
+    is $svc->error,  q{},   "Lookup went ok";
+    is $svc->name,   "ssh", "Loaded name";
+    isnt $svc->type, q{},   "Loaded type: " . $svc->type;
+    isnt $svc->run,  q{},   "Loaded run: " . $svc->run;
 }
 
 exit 0;

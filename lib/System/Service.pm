@@ -26,15 +26,15 @@ use constant OK_ARGS      => qw/
     started
     /;
 use constant ALIAS_LIST => (
-    description   => "title",
-    lable         => "title",
-   "pre-start"    => "prerun",
-    execstartpre  => "prerun",
-    command       => "run",
-    exec          => "run",
-    execstart     => "run",
-   "post-start"   => "postrun",
-    execstartpost => "postrun",
+    "description"   => "title",
+    "lable"         => "title",
+    "pre-start"     => "prerun",
+    "execstartpre"  => "prerun",
+    "command"       => "run",
+    "exec"          => "run",
+    "execstart"     => "run",
+    "post-start"    => "postrun",
+    "execstartpost" => "postrun",
 );
 
 # Not (yet) supported: reasearch-unix (old), procd, busybox-init, runi, ...
@@ -49,7 +49,9 @@ sub new {
         name    => q{},                   # Service name
         title   => q{},                   # Service description or title
         type    => q{},                   # Service type normal, fork, ...
+        prerun  => q{},                   # pre-Command executable and arguments
         run     => q{},                   # Command executable and arguments
+        postrun => q{},                   # post-Command executable and arguments
         enabled => 0,                     # Will start on boot
         started => 0,                     # Running now
     };
@@ -127,7 +129,7 @@ sub _process_args {
             unless grep $this->{type}, OK_TYPES;
     }
 
-    # Only known keywords
+    # Only known keywords allowed
     foreach my $k (keys %$this) {
         return $this->{err} = "Unknown keyword: $k"
             unless grep $k, OK_ARGS;
@@ -136,7 +138,9 @@ sub _process_args {
 }
 
 # Accessors
+sub prerun  {return shift->{prerun};}
 sub run     {return shift->{run};}
+sub postrun {return shift->{postrun};}
 sub enabled {return shift->{enabled};}
 sub error   {return shift->{err};}
 sub initsys {return shift->{initsys};}
@@ -200,10 +204,12 @@ sub add {
     close UF;
 
     # Copy attributes into ourselves
-    $this->{name}  = $name;
-    $this->{title} = $title;
-    $this->{type}  = $type;
-    $this->{run}   = $run;
+    $this->{name}    = $name;
+    $this->{title}   = $title;
+    $this->{type}    = $type;
+    $this->{prerun}  = $pre;
+    $this->{run}     = $run;
+    $this->{postrun} = $post;
 
     return $this->{err} = q{};
 }
@@ -275,7 +281,9 @@ sub remove {
     my $n = unlink $unitfile;
     return $this->{err} = "Cannot remove service $name: $!" unless $n;
     $this->{name}    = q{};
+    $this->{prerun}  = q{};
     $this->{run}     = q{};
+    $this->{postrun} = q{};
     $this->{title}   = q{};
     $this->{type}    = q{};
     $this->{running} = 0;
@@ -311,6 +319,48 @@ package System::Service::upstart;
 our @ISA = qw/System::Service/;
 
 sub add {
+    my $this = shift;
+    my %args = ();
+    System::Service::_process_args(\%args, @_);
+    return $this->{err} = $args{err} if $args{err};
+    my $name  = $args{name};
+    my $title = $args{title} // q{};       #/
+    my $type  = $args{type} || "simple";
+    my $pre   = $args{prerun};
+    my $run   = $args{run};
+    my $post  = $args{postrun};
+    return $this->{err} = "Insufficient arguments; name and run required"
+        if !$name || !$run;
+
+    # Create conf file
+    my $unitfile = "$this->{root}/etc/init/$name.conf";
+    return $this->{err} = "Service already exists: $name"
+        if -e $unitfile && !$args{force};
+
+    open(UF, '>', $unitfile)
+        or return $this->{err} = "Cannot create unit file: $!";
+    say UF "# Init script for the $name service";
+    say UF "Description  \"$title\"";
+    say UF "start on runlevel [2345]";     # TODO map this somehow
+    say UF "stop  on runlevel [!2345]";    # TODO map this somehow
+    say UF "pre-start exec $pre" if $pre;
+    say UF "exec $run";
+    say UF "post-start exec $post" if $post;
+    say UF "expect fork"           if $type eq "BLAHBLAHTBD";    # TODO what to use here?
+    say UF "expect daemon"         if $type eq "forking";
+    say UF "expect stop"           if $type eq "notify";
+
+    close UF;
+
+    # Copy attributes into ourselves
+    $this->{name}    = $name;
+    $this->{title}   = $title;
+    $this->{type}    = $type;
+    $this->{prerun}  = $post;
+    $this->{run}     = $run;
+    $this->{postrun} = $pre;
+
+    return $this->{err} = q{};
 }
 
 sub disable {
@@ -441,7 +491,7 @@ service job types:
 
     simple  || service
     forking --> upstart task with 'expect daemon'
-    notify  --> upstart task
+    notify  --> upstart task with 'expect stop'
     oneshot || task
 
 
