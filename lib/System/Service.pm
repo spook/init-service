@@ -1,34 +1,41 @@
 package System::Service;
 
-use 5.006;
+use 5.10.0;
 use strict;
 use warnings;
 
 our $VERSION = '2017.03.13';
 
 use constant INIT_UNKNOWN => "unknown";
-use constant INIT_SYSTEMV => "SysV";
+use constant INIT_SYSTEMV => "SysVinit";
 use constant INIT_UPSTART => "upstart";
 use constant INIT_SYSTEMD => "systemd";
+
+# Not (yet) supported: reasearch-unix (old), procd, busybox-init, runi, ...
 
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;    # Get the class name
-    my $this = {
-        err     => q{},             # Error status
-        root    => q{},             # File-system root (blank = /)
-        initsys => INIT_UNKNOWN,    # Init system in use
-        name    => q{},             # Service name
-        title   => q{},             # Service description or title
-        type    => q{},             # Service type normal, fork, ...
-        command => q{},             # Command executable and arguments
-        enabled => 0,               # Will start on boot
-        started => 0,               # Running now
-        @_                          # Override or additional args
+    my $this  = {
+        err     => q{},                   # Error status
+        root    => q{},                   # File-system root (blank = /)
+        initsys => q{},                   # Init system in use
+        name    => q{},                   # Service name
+        title   => q{},                   # Service description or title
+        type    => q{},                   # Service type normal, fork, ...
+        command => q{},                   # Command executable and arguments
+        enabled => 0,                     # Will start on boot
+        started => 0,                     # Running now
     };
-    deduce_initsys($this);
-    $this->{initsys} = $this->{force} if $this->{force};
-    $this->{err} = "Unknown init system" if $this->{initsys} eq INIT_UNKNOWN;
+    _process_args($this, @_);
+    deduce_initsys($this) unless $this->{initsys};
+    if (   ($this->{initsys} ne INIT_SYSTEMV)
+        && ($this->{initsys} ne INIT_UPSTART)
+        && ($this->{initsys} ne INIT_SYSTEMD))
+    {
+        $this->{err}     = "Unknown init system";
+        $this->{initsys} = INIT_UNKNOWN;            # force to unknown, if passed-in was unknown
+    }
     $class .= "::" . $this->{initsys};
     bless $this, $class;
     return $this;
@@ -39,7 +46,7 @@ sub deduce_initsys {
 
     # Look for systemd
     my $ps_out = qx(ps -p 1 --no-headers -o comm 2>&1)
-        || q{};    # 'comm' walks symlinks
+        || q{};                                     # 'comm' walks symlinks
     if (   -d "$this->{root}/lib/systemd"
         && -d "$this->{root}/etc/systemd"
         && $ps_out =~ m{\bsystemd\b})
@@ -56,6 +63,17 @@ sub deduce_initsys {
         return $this->{initsys} = INIT_SYSTEMV;
     }
     return $this->{initsys} = INIT_UNKNOWN;
+}
+
+sub _process_args {
+    my $this = shift;
+    while (@_) {
+        my $k = lc shift;
+        $k =~ s/^\s*(.+?)\s*$/$1/;    # trim
+        my $v = shift // q{};         #/
+        $this->{$k} = $v;
+    }
+
 }
 
 # Accessors
@@ -90,7 +108,7 @@ sub add {
     my %args    = @_;
     my $name    = $args{name};
     my $title   = $args{title} || q{};
-    my $type    = $args{type}  || "simple";
+    my $type    = $args{type} || "simple";
     my $command = $args{command};
     return $this->{err} = "Insufficient argument; name and command required"
         if !$name || !$command;
@@ -117,9 +135,9 @@ sub add {
     close UF;
 
     # Copy attributes into ourselves
-    $this->{name}  = $name;
-    $this->{title} = $title;
-    $this->{type}  = $type;
+    $this->{name}    = $name;
+    $this->{title}   = $title;
+    $this->{type}    = $type;
     $this->{command} = $command;
 
     return $this->{err} = q{};
@@ -151,8 +169,7 @@ sub load {
     my $this = shift;
     my $name = shift;
 
-    my @lines = qx(systemctl show $name.service 2>&1)
-        ;    # XXX Do instead? $this-{root}/bin/systemctl
+    my @lines = qx(systemctl show $name.service 2>&1);  # XXX Do instead? $this-{root}/bin/systemctl
     my %info = map {split(/=/, $_, 2)} @lines;
     return $this->{err} = "No such service $name"
         if !%info || $info{LoadState} !~ m/loaded/i;

@@ -9,7 +9,7 @@ plan tests => 18;
 
 # Force the unknown init system
 note "--- Test forced UNKNOWN init system ---";
-my $svc = System::Service->new(force => System::Service::INIT_UNKNOWN);
+my $svc = System::Service->new(initsys => System::Service::INIT_UNKNOWN);
 ok $svc, "Created object";
 like $svc->error, qr{unknown init system}i, "Unknown init is an error";
 is $svc->initsys, System::Service::INIT_UNKNOWN, "correct init system";
