@@ -19,18 +19,18 @@ SKIP: {
         if $svc->error;
     ok $svc, "Service object created";
     my $svc_nam = "test-020";
-    my $svc_cmd = "/bin/sleep 5";
+    my $svc_run = "/bin/sleep 5";
     my $svc_tit = "Test service for System::Service test #020";
     my $svc_typ = "simple";
     $svc->add(
         name    => $svc_nam,
         type    => $svc_typ,
-        command => $svc_cmd,
+        run => $svc_run,
         title   => $svc_tit
     );
     is $svc->error, q{}, "add() service status";
     is $svc->name(),    $svc_nam, "  Name correct";
-    is $svc->command(), $svc_cmd, "  Command correct";
+    is $svc->run(), $svc_run, "  Run corect";
     is $svc->title(),   $svc_tit, "  Title correct";
     is $svc->type(),    $svc_typ, "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -42,7 +42,7 @@ SKIP: {
     $svc->load($svc_nam);
     is $svc->error, q{}, "load() status";
     is $svc->name(),    $svc_nam, "  Name correct";
-    is $svc->command(), $svc_cmd, "  Command correct";
+    is $svc->run(), $svc_run, "  Run corect";
     is $svc->title(),   $svc_tit, "  Title correct";
     is $svc->type(),    $svc_typ, "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -62,7 +62,7 @@ SKIP: {
     $svc->load($svc_nam);
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam, "  Name correct";
-    is $svc->command(), $svc_cmd, "  Command correct";
+    is $svc->run(), $svc_run, "  Run corect";
     is $svc->title(),   $svc_tit, "  Title correct";
     is $svc->type(),    $svc_typ, "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -82,7 +82,7 @@ SKIP: {
     $svc->load($svc_nam);
     is $svc->error, q{}, "  re-load() status";
     is $svc->name(),    $svc_nam, "  Name correct";
-    is $svc->command(), $svc_cmd, "  Command correct";
+    is $svc->run(), $svc_run, "  Run corect";
     is $svc->title(),   $svc_tit, "  Title correct";
     is $svc->type(),    $svc_typ, "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -102,7 +102,7 @@ SKIP: {
     $svc->load($svc_nam);
     is $svc->error, q{}, "  re-load() status";
     is $svc->name(),    $svc_nam, "  Name correct";
-    is $svc->command(), $svc_cmd, "  Command correct";
+    is $svc->run(), $svc_run, "  Run corect";
     is $svc->title(),   $svc_tit, "  Title correct";
     is $svc->type(),    $svc_typ, "  Type correct";
     ok $svc->running(),  "  Is running";
@@ -110,7 +110,7 @@ SKIP: {
 
     # Look for it on the system
     sleep 1;    # give it time to start, if system is busy
-    my $out = qx(ps --no-header wax | /bin/grep -v grep | /bin/grep '$svc_cmd' 2>&1);
+    my $out = qx(ps --no-header wax | /bin/grep -v grep | /bin/grep '$svc_run' 2>&1);
     isnt $out, q{}, "  Service found on system";
 
     # Stop it
@@ -127,7 +127,7 @@ SKIP: {
     $svc->load($svc_nam);
     is $svc->error, q{}, "  re-load() status";
     is $svc->name(),    $svc_nam, "  Name correct";
-    is $svc->command(), $svc_cmd, "  Command correct";
+    is $svc->run(), $svc_run, "  Run corect";
     is $svc->title(),   $svc_tit, "  Title correct";
     is $svc->type(),    $svc_typ, "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -141,7 +141,7 @@ SKIP: {
     $svc->remove($svc_nam);
     is $svc->error, q{}, "Remove status OK";
     is $svc->name(),    q{}, "  Name ampty";
-    is $svc->command(), q{}, "  Command empty";
+    is $svc->run(), q{}, "  run empty";
     is $svc->title(),   q{}, "  Title empty";
     is $svc->type(),    q{}, "  Type empty";
     ok !$svc->running(), "  Not running";

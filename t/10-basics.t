@@ -48,7 +48,7 @@ SKIP: {
     is $svc->error,     q{},   "Lookup went ok";
     is $svc->name,      "ssh", "Loaded name";
     isnt $svc->type,    q{},   "Loaded type: " . $svc->type;
-    isnt $svc->command, q{},   "Loaded command: " . $svc->command;
+    isnt $svc->run, q{},   "Loaded run: " . $svc->run;
 }
 
 exit 0;

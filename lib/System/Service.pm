@@ -17,14 +17,25 @@ use constant OK_ARGS      => qw/
     name
     title
     type
-    precommand
-    command
-    postcommand
+    prerun
+    run
+    postrun
 
-    err 
+    err
     enabled
-    started   
+    started
     /;
+use constant ALIAS_LIST => (
+    description   => "title",
+    lable         => "title",
+   "pre-start"    => "prerun",
+    execstartpre  => "prerun",
+    command       => "run",
+    exec          => "run",
+    execstart     => "run",
+   "post-start"   => "postrun",
+    execstartpost => "postrun",
+);
 
 # Not (yet) supported: reasearch-unix (old), procd, busybox-init, runi, ...
 
@@ -38,7 +49,7 @@ sub new {
         name    => q{},                   # Service name
         title   => q{},                   # Service description or title
         type    => q{},                   # Service type normal, fork, ...
-        command => q{},                   # Command executable and arguments
+        run     => q{},                   # Command executable and arguments
         enabled => 0,                     # Will start on boot
         started => 0,                     # Running now
     };
@@ -56,9 +67,8 @@ sub new {
     bless $this, $class;
 
     # Create or load on new
-    if ($this->{name} && $this->{command}) {
-        $this->add(
-            @_);
+    if ($this->{name} && $this->{run}) {
+        $this->add(@_);
     }
     elsif ($this->{name}) {
         $this->load($this->{name});
@@ -100,8 +110,10 @@ sub _process_args {
         $this->{$k} = $v;
     }
 
-    $this->{title} = delete $this->{description}
-        if $this->{description};
+    # Replace aliases
+    while (my ($alias, $real) = each ALIAS_LIST) {
+        $this->{$real} = delete $this->{$alias} if $this->{$alias};
+    }
 
     # Common checks
     if ($this->{name} && $this->{name} !~ m/^[\w\-\.\@\:]+$/i) {
@@ -109,7 +121,7 @@ sub _process_args {
     }
     if ($this->{type}) {
         $this->{type} = lc($this->{type});
-        $this->{type} = "simple"  if $this->{type} eq "service";
+        $this->{type} = "simple" if $this->{type} eq "service";
         $this->{type} = "oneshot" if $this->{type} eq "task";
         return $this->{err} = "Bad type, must be " . join(", ", OK_TYPES)
             unless grep $this->{type}, OK_TYPES;
@@ -124,7 +136,7 @@ sub _process_args {
 }
 
 # Accessors
-sub command {return shift->{command};}
+sub run     {return shift->{run};}
 sub enabled {return shift->{enabled};}
 sub error   {return shift->{err};}
 sub initsys {return shift->{initsys};}
@@ -155,12 +167,14 @@ sub add {
     my %args = ();
     System::Service::_process_args(\%args, @_);
     return $this->{err} = $args{err} if $args{err};
-    my $name    = $args{name};
-    my $title   = $args{title} // q{};       #/
-    my $type    = $args{type} || "simple";
-    my $command = $args{command};
-    return $this->{err} = "Insufficient arguments; name and command required"
-        if !$name || !$command;
+    my $name  = $args{name};
+    my $title = $args{title} // q{};       #/
+    my $type  = $args{type} || "simple";
+    my $pre   = $args{prerun};
+    my $run   = $args{run};
+    my $post  = $args{postrun};
+    return $this->{err} = "Insufficient arguments; name and run required"
+        if !$name || !$run;
 
     # Create unit file
     my $unitfile = "$this->{root}/lib/systemd/system/$name.service";
@@ -174,7 +188,9 @@ sub add {
 
     say UF "";
     say UF "[Service]";
-    say UF "ExecStart=$command";
+    say UF "ExecStartPre=$pre" if $pre;
+    say UF "ExecStart=$run";
+    say UF "ExecStartPost=$post" if $post;
     say UF "Type=$type";
 
     say UF "";
@@ -184,10 +200,10 @@ sub add {
     close UF;
 
     # Copy attributes into ourselves
-    $this->{name}    = $name;
-    $this->{title}   = $title;
-    $this->{type}    = $type;
-    $this->{command} = $command;
+    $this->{name}  = $name;
+    $this->{title} = $title;
+    $this->{type}  = $type;
+    $this->{run}   = $run;
 
     return $this->{err} = q{};
 }
@@ -222,15 +238,22 @@ sub load {
     my %info = map {split(/=/, $_, 2)} @lines;
     return $this->{err} = "No such service $name"
         if !%info || $info{LoadState} !~ m/loaded/i;
-    my $cmd = $info{ExecStart};
-    $cmd = $1 if $cmd =~ m{argv\[]=(.+?)\s*\;};
+    my $pre = $info{ExecStartPre} || q{};
+    $pre = $1 if $pre =~ m{argv\[]=(.+?)\s*\;};
+    my $run = $info{ExecStart} || q{};
+    $run = $1 if $run =~ m{argv\[]=(.+?)\s*\;};
+    my $post = $info{ExecStartPost} || q{};
+    $post = $1 if $post =~ m{argv\[]=(.+?)\s*\;};
     $this->{name}    = $name;
-    $this->{command} = $cmd;
+    $this->{prerun}  = $pre;
+    $this->{run}     = $run;
+    $this->{postrun} = $post;
     $this->{title}   = $info{Description};
     $this->{type}    = $info{Type};
     $this->{running} = $info{SubState} =~ m/running/i ? 1 : 0;
     $this->{enabled} = $info{UnitFileState} =~ m/enabled/i ? 1 : 0;
-    foreach my $k (qw/command title type/) {
+
+    foreach my $k (qw/prerun run postrun title type/) {
         chomp $this->{$k};
     }
 }
@@ -252,7 +275,7 @@ sub remove {
     my $n = unlink $unitfile;
     return $this->{err} = "Cannot remove service $name: $!" unless $n;
     $this->{name}    = q{};
-    $this->{command} = q{};
+    $this->{run}     = q{};
     $this->{title}   = q{};
     $this->{type}    = q{};
     $this->{running} = 0;
@@ -374,13 +397,13 @@ equivalent functionality.
     # Print service info
     say $svc->name;
     say $svc->type;
-    say $svc->command;
+    say $svc->run;
     say $svc->enabled? "Enabled" : "Disabled";
     say $svc->running? "Running" : "Stopped";
 
     # Make new service known to the system (creates .service, .conf, or /etc/init.d file)
     $err = $svc->add(name => "foo-daemon",
-                     command => "/usr/bin/foo-daemon -D -p123");
+                     run => "/usr/bin/foo-daemon -D -p123");
        # --or--
     $svc = System::Service->new( ...same args...)
     if ($svc->error) { ... }
@@ -422,9 +445,9 @@ service job types:
     oneshot || task
 
 
-    command      || exec
-    precommand   || pre-start
-    postcommand  || post-start
+    run      || exec
+    prerun   || pre-start
+    postrun  || post-start
 
 =head1 AUTHOR
 
