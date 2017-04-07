@@ -11,6 +11,20 @@ use constant INIT_SYSTEMV => "SysVinit";
 use constant INIT_UPSTART => "upstart";
 use constant INIT_SYSTEMD => "systemd";
 use constant OK_TYPES     => qw/simple service forking oneshot task/;
+use constant OK_ARGS      => qw/
+    root
+    initsys
+    name
+    title
+    type
+    precommand
+    command
+    postcommand
+
+    err 
+    enabled
+    started   
+    /;
 
 # Not (yet) supported: reasearch-unix (old), procd, busybox-init, runi, ...
 
@@ -86,9 +100,12 @@ sub _process_args {
         $this->{$k} = $v;
     }
 
+    $this->{title} = delete $this->{description}
+        if $this->{description};
+
     # Common checks
     if ($this->{name} && $this->{name} !~ m/^[\w\-\.\@\:]+$/i) {
-        return $this->{err} = "Bad service name, must contain only a-zA-z0-9.-_@:";
+        return $this->{err} = "Bad service name, must contain only a-zA-z0-9.-_\@:";
     }
     if ($this->{type}) {
         $this->{type} = lc($this->{type});
@@ -97,6 +114,13 @@ sub _process_args {
         return $this->{err} = "Bad type, must be " . join(", ", OK_TYPES)
             unless grep $this->{type}, OK_TYPES;
     }
+
+    # Only known keywords
+    foreach my $k (keys %$this) {
+        return $this->{err} = "Unknown keyword: $k"
+            unless grep $k, OK_ARGS;
+    }
+
 }
 
 # Accessors
@@ -129,7 +153,7 @@ our @ISA = qw/System::Service/;
 sub add {
     my $this = shift;
     my %args = ();
-    _process_args(\%args, @_);
+    System::Service::_process_args(\%args, @_);
     return $this->{err} = $args{err} if $args{err};
     my $name    = $args{name};
     my $title   = $args{title} // q{};       #/
@@ -215,7 +239,7 @@ sub remove {
     my $this = shift;
     my $name = shift;
     my %args;
-    _process_args(\%args, @_);
+    System::Service::_process_args(\%args, @_);
 
     # If we're removing it, we must first insure its stopped and disabled
     $this->stop($name);    #ignore errors except...? XXX
@@ -393,10 +417,15 @@ sub add {
 service job types:
 
     simple  || service
-    forking --> upstart task
+    forking --> upstart task with 'expect daemon'
     notify  --> upstart task
     oneshot || task
-    
+
+
+    command      || exec
+    precommand   || pre-start
+    postcommand  || post-start
+
 =head1 AUTHOR
 
 Uncle Spook, C<< <spook at MisfitMountain.org> >>
