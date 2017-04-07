@@ -10,6 +10,7 @@ use constant INIT_UNKNOWN => "unknown";
 use constant INIT_SYSTEMV => "SysVinit";
 use constant INIT_UPSTART => "upstart";
 use constant INIT_SYSTEMD => "systemd";
+use constant OK_TYPES     => qw/simple service forking oneshot task/;
 
 # Not (yet) supported: reasearch-unix (old), procd, busybox-init, runi, ...
 
@@ -28,6 +29,7 @@ sub new {
         started => 0,                     # Running now
     };
     _process_args($this, @_);
+    return $this->{err} if $this->{err};
     deduce_initsys($this) unless $this->{initsys};
     if (   ($this->{initsys} ne INIT_SYSTEMV)
         && ($this->{initsys} ne INIT_UPSTART)
@@ -84,6 +86,17 @@ sub _process_args {
         $this->{$k} = $v;
     }
 
+    # Common checks
+    if ($this->{name} && $this->{name} !~ m/^[\w\-\.\@\:]+$/i) {
+        return $this->{err} = "Bad service name, must contain only a-zA-z0-9.-_@:";
+    }
+    if ($this->{type}) {
+        $this->{type} = lc($this->{type});
+        $this->{type} = "simple"  if $this->{type} eq "service";
+        $this->{type} = "oneshot" if $this->{type} eq "task";
+        return $this->{err} = "Bad type, must be " . join(", ", OK_TYPES)
+            unless grep $this->{type}, OK_TYPES;
+    }
 }
 
 # Accessors
@@ -117,6 +130,7 @@ sub add {
     my $this = shift;
     my %args = ();
     _process_args(\%args, @_);
+    return $this->{err} = $args{err} if $args{err};
     my $name    = $args{name};
     my $title   = $args{title} // q{};       #/
     my $type    = $args{type} || "simple";
@@ -131,17 +145,17 @@ sub add {
 
     open(UF, '>', $unitfile)
         or return $this->{err} = "Cannot create unit file: $!";
-    print UF "[Unit]\n";
-    print UF "Description=$title\n";
+    say UF "[Unit]";
+    say UF "Description=$title";
 
-    print UF "\n";
-    print UF "[Service]\n";
-    print UF "ExecStart=$command\n";
-    print UF "Type=$type\n";
+    say UF "";
+    say UF "[Service]";
+    say UF "ExecStart=$command";
+    say UF "Type=$type";
 
-    print UF "\n";
-    print UF "[Install]\n";
-    print UF "WantedBy=multi-user.target\n";    # TODO... how to map this?
+    say UF "";
+    say UF "[Install]";
+    say UF "WantedBy=multi-user.target";    # TODO... how to map this?
 
     close UF;
 
@@ -325,7 +339,7 @@ equivalent functionality.
     my $svc = System::Service->new();
 
     # Show the underlying init system
-    say $svc->init;
+    say $svc->initsys;
 
     # Load an existing service
     my $err = $svc->load("foo-service");
@@ -366,16 +380,23 @@ equivalent functionality.
 
 =cut
 
-sub function1 {
+sub new {
 }
 
 =head2 function2
 
 =cut
 
-sub function2 {
+sub add {
 }
 
+service job types:
+
+    simple  || service
+    forking --> upstart task
+    notify  --> upstart task
+    oneshot || task
+    
 =head1 AUTHOR
 
 Uncle Spook, C<< <spook at MisfitMountain.org> >>
