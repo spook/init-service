@@ -25,7 +25,7 @@ use constant OK_ARGS      => qw/
     enabled
     started
     /;
-use constant ALIAS_LIST => (
+my %ALIAS_LIST = (  # Don't do 'use constant' for this
     "description"   => "title",
     "lable"         => "title",
     "pre-start"     => "prerun",
@@ -113,7 +113,7 @@ sub _process_args {
     }
 
     # Replace aliases
-    while (my ($alias, $real) = each ALIAS_LIST) {
+    while (my ($alias, $real) = each %ALIAS_LIST) {
         $this->{$real} = delete $this->{$alias} if $this->{$alias};
     }
 
@@ -123,7 +123,7 @@ sub _process_args {
     }
     if ($this->{type}) {
         $this->{type} = lc($this->{type});
-        $this->{type} = "simple" if $this->{type} eq "service";
+        $this->{type} = "simple"  if $this->{type} eq "service";
         $this->{type} = "oneshot" if $this->{type} eq "task";
         return $this->{err} = "Bad type, must be " . join(", ", OK_TYPES)
             unless grep $this->{type}, OK_TYPES;
