@@ -436,6 +436,14 @@ sub load {
     close UF;
 
     # then also run `service $name status` to read current state
+    # ex output:
+    #   ssh start/running, process 12345
+    #   xxx: unrecognized service
+    # The format of the output can be summarized as follows:
+    # <job> [ (<instance>)]<goal>/<status>[, process <PID>]
+    #        [<section> process <PID>]
+    my $out = qx($this->{root}/sbin/initctl status $name 2>&1);
+    $this->{running} = 1 if !$? && $out =~ m{\b/running\b}i;
 }
 
 sub remove {
