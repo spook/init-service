@@ -1,6 +1,6 @@
 package System::Service;
 
-use 5.10.0;
+use 5.10.0; # for // operator and say() function
 use strict;
 use warnings;
 
@@ -125,7 +125,7 @@ sub _process_args {
     if ($this->{name} && $this->{name} !~ m/^[\w\-\.\@\:]+$/i) {
         return $this->{err} = "Bad service name, must contain only a-zA-z0-9.-_\@:";
     }
-    if (length($this->{name}) > 64) {
+    if ($this->{name} && (length($this->{name}) > 64)) {
         return $this->{err} = "Bad service name, maximum length is 64 characters";
     }
     if ($this->{type}) {
@@ -192,12 +192,12 @@ sub add {
         if !$name || !$run;
 
     # Create unit file
-    my $unitfile = "$this->{root}/lib/systemd/system/$name.service";
+    my $initfile = "$this->{root}/lib/systemd/system/$name.service";
     return $this->{err} = "Service already exists: $name"
-        if -e $unitfile && !$args{force};
+        if -e $initfile && !$args{force};
 
-    open(UF, '>', $unitfile)
-        or return $this->{err} = "Cannot create unit file: $!";
+    open(UF, '>', $initfile)
+        or return $this->{err} = "Cannot create init file $initfile: $!";
     say UF "[Unit]";
     say UF "Description=$title";
 
@@ -221,8 +221,10 @@ sub add {
     $this->{prerun}  = $pre;
     $this->{run}     = $run;
     $this->{postrun} = $post;
-
-    # Enabled or started on new?
+    $this->{running} = 0;
+    $this->{enabled} = 0;
+ 
+    # Enabled or started on add?
     $this->{err} = q{};
     $this->enable() if $args{enabled};
     $this->start()  if !$this->error && $args{started};
@@ -291,10 +293,10 @@ sub remove {
     $this->disable($name);
 
     # Now remove the unit file(s)
-    my $unitfile = "$this->{root}/lib/systemd/system/$name.service";
+    my $initfile = "$this->{root}/lib/systemd/system/$name.service";
     return $this->{err} = "Service does not exist: $name"
-        if !-e $unitfile && !$args{force};
-    my $n = unlink $unitfile;
+        if !-e $initfile && !$args{force};
+    my $n = unlink $initfile;
     return $this->{err} = "Cannot remove service $name: $!" unless $n;
     $this->{name}    = q{};
     $this->{prerun}  = q{};
@@ -350,12 +352,11 @@ sub add {
         if !$name || !$run;
 
     # Create conf file
-    my $unitfile = "$this->{root}/etc/init/$name.conf";
+    my $initfile = "$this->{root}/etc/init/$name.conf";
     return $this->{err} = "Service already exists: $name"
-        if !$args{force} && -e $unitfile;
-
-    open(UF, '>', $unitfile)
-        or return $this->{err} = "Cannot create unit file: $!";
+        if !$args{force} && -e $initfile;
+    open(UF, '>', $initfile)
+        or return $this->{err} = "Cannot create init file $initfile: $!";
     say UF "# upstart init script for the $name service";
     say UF "description  \"$title\"";
     say UF "pre-start exec $pre" if $pre;
@@ -373,8 +374,15 @@ sub add {
     $this->{prerun}  = $pre;
     $this->{run}     = $run;
     $this->{postrun} = $post;
+    $this->{running} = 0;
+    $this->{enabled} = 0;
+ 
+    # Enabled or started on add?
+    $this->{err} = q{};
+    $this->enable() if $args{enabled};
+    $this->start()  if !$this->error && $args{started};
 
-    return $this->{err} = q{};
+    return $this->{err};
 }
 
 sub disable {
@@ -396,9 +404,9 @@ sub _enadis {
 
     # Inhale the file line by line, removing any existing start on / stop on clauses
     my $contents = q{};
-    my $unitfile = "$this->{root}/etc/init/$name.conf";
-    open(UF, '<', $unitfile)
-        or return $this->{err} = "Cannot open unit file $unitfile: $!";
+    my $initfile = "$this->{root}/etc/init/$name.conf";
+    open(UF, '<', $initfile)
+        or return $this->{err} = "Cannot open unit file $initfile: $!";
     while (my $line = <UF>) {
         next if $line =~ m{^\s*start\b}i;
         next if $line =~ m{^\s*stop\b}i;
@@ -414,12 +422,12 @@ sub _enadis {
     }
 
     # Rewrite it to a temp, then rename into place (it's an atomic operation)
-    open(NF, '>', "$unitfile-new")
-        or return $this->{err} = "Cannot create unit file $unitfile-new: $!";
+    open(NF, '>', "$initfile-new")
+        or return $this->{err} = "Cannot create unit file $initfile-new: $!";
     print NF $contents;
     close NF;
-    rename "$unitfile-new", $unitfile
-        or return $this->{err} = "Cannot move new unit file $unitfile-new into place: $!";
+    rename "$initfile-new", $initfile
+        or return $this->{err} = "Cannot move new unit file $initfile-new into place: $!";
 
     return $this->{err} = q{};
 }
@@ -439,9 +447,9 @@ sub load {
     $this->{enabled} = 0;
 
     # Parse the service file
-    my $unitfile = "$this->{root}/etc/init/$name.conf";
-    open(UF, '<', $unitfile)
-        or return $this->{err} = "No such service $name: cannot open $unitfile: $!";
+    my $initfile = "$this->{root}/etc/init/$name.conf";
+    open(UF, '<', $initfile)
+        or return $this->{err} = "No such service $name: cannot open $initfile: $!";
     while (my $line = <UF>) {
         $this->{title}   = $1        if $line =~ m{^\s*description\s+"?(.+?)"?\s*$}i;
         $this->{type}    = 'forking' if $line =~ m{^\s*expect\s+daemon\b}i;
@@ -475,10 +483,10 @@ sub remove {
     $this->disable($name);
 
     # Now remove the conf file
-    my $unitfile = "$this->{root}/etc/init/$name.conf";    # TODO; use the stored name
+    my $initfile = "$this->{root}/etc/init/$name.conf";    # TODO; use the stored name
     return $this->{err} = "Service does not exist: $name"
-        if !-e $unitfile && !$args{force};
-    my $n = unlink $unitfile;
+        if !-e $initfile && !$args{force};
+    my $n = unlink $initfile;
     return $this->{err} = "Cannot remove service $name: $!" unless $n;
     $this->{name}    = q{};
     $this->{prerun}  = q{};
@@ -520,6 +528,115 @@ our $VERSION = $System::Service::VERSION;
 our @ISA = qw/System::Service/;
 
 sub add {
+    my $this = shift;
+    my %args = ();
+    System::Service::_process_args(\%args, @_);
+    return $this->{err} = $args{err} if $args{err};
+    my $name  = $args{name};
+    my $title = $args{title} // q{};       #/
+    my $type  = $args{type} || "simple";
+    my $pre   = $args{prerun};
+    my $run   = $args{run};
+    my $post  = $args{postrun};
+    return $this->{err} = "Insufficient arguments; name and run required"
+        if !$name || !$run;
+    my ($daemon, $opts) = $run =~ m/^\s*(\S+)\s+(.+)$/;
+
+    # Form the script
+    my $script = <<"__EOSCRIPT__";
+#! /bin/sh
+
+### BEGIN INIT INFO
+# Provides:\t$name
+# Required-Start:\t\$remote_fs \$syslog
+# Required-Stop:\t\$remote_fs \$syslog
+# Default-Start:\t2 3 4 5
+# Default-Stop:\t
+# Short-Description:\t$title
+### END INIT INFO
+
+# /etc/init.d/$name: start and stop $title
+# This script is autogenerated by System::Service
+
+set -e
+umask 022
+. /lib/lsb/init-functions
+export PATH=/sbin:/bin:/usr/sbin:/usr/bin
+
+case "$1" in
+  start)
+	log_daemon_msg "Starting $title" "$name" || true
+	if start-stop-daemon --start --quiet --oknodo --pidfile /var/run/$name.pid --exec $daemon -- $opts; then
+	    log_end_msg 0 || true
+	else
+	    log_end_msg 1 || true
+	fi
+	;;
+  stop)
+	log_daemon_msg "Stopping $title" "$name" || true
+	if start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/$name.pid; then
+	    log_end_msg 0 || true
+	else
+	    log_end_msg 1 || true
+	fi
+	;;
+
+  reload|force-reload)
+	log_daemon_msg "Reloading $title" "$name" || true
+	if start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile /var/run/$name.pid --exec $daemon; then
+	    log_end_msg 0 || true
+	else
+	    log_end_msg 1 || true
+	fi
+	;;
+
+  restart)
+	log_daemon_msg "Restarting $title" "$name" || true
+	start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile /var/run/$name.pid
+	check_for_no_start log_end_msg
+	check_dev_null log_end_msg
+	if start-stop-daemon --start --quiet --oknodo --pidfile /var/run/$name.pid --exec $daemon -- $opts; then
+	    log_end_msg 0 || true
+	else
+	    log_end_msg 1 || true
+	fi
+	;;
+
+  status)
+	status_of_proc -p /var/run/$name.pid $daemon $name && exit 0 || exit $?
+	;;
+
+  *)
+	log_action_msg "Usage: /etc/init.d/$name {start|stop|reload|force-reload|restart|status}" || true
+	exit 1
+esac
+
+exit 0
+__EOSCRIPT__
+
+    # Create the init file
+    my $initfile = "$this->{root}/etc/init.d/$name";
+    open(IF, '>', $initfile)
+        or return $this->{err} = "Cannot create init file $initfile: $!";
+    print IF $script;
+    close IF;
+
+    # Copy attributes into ourselves
+    $this->{name}    = $name;
+    $this->{title}   = $title;
+    $this->{type}    = $type;
+    $this->{prerun}  = $pre;
+    $this->{run}     = $run;
+    $this->{postrun} = $post;
+    $this->{running} = 0;
+    $this->{enabled} = 0;
+ 
+    # Enabled or started on add?
+    $this->{err} = q{};
+    $this->enable() if $args{enabled};
+    $this->start()  if !$this->error && $args{started};
+
+    return $this->{err};
 }
 
 sub disable {
@@ -852,7 +969,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 =cut
 
 To Do:
-* Rename the whole thing to somethign better, perhaps:  InitSys::Service ?
+* Rename the whole thing to something better, perhaps:  InitSys::Service ?
 * sysVinit implementation
 * shutdown commands: stop, prestop, but no poststop
 * commands can be list ref's
