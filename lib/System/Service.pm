@@ -300,7 +300,6 @@ sub start {
         if $?;
     $this->{running} = 1;
     return $this->{err} = q{};
-
 }
 
 sub stop {
@@ -335,21 +334,18 @@ sub add {
     # Create conf file
     my $unitfile = "$this->{root}/etc/init/$name.conf";
     return $this->{err} = "Service already exists: $name"
-        if -e $unitfile && !$args{force};
+        if !$args{force} && -e $unitfile;
 
     open(UF, '>', $unitfile)
         or return $this->{err} = "Cannot create unit file: $!";
-    say UF "# Init script for the $name service";
+    say UF "# upstart init script for the $name service";
     say UF "Description  \"$title\"";
-    say UF "start on runlevel [2345]";     # TODO map this somehow
-    say UF "stop  on runlevel [!2345]";    # TODO map this somehow
     say UF "pre-start exec $pre" if $pre;
     say UF "exec $run";
     say UF "post-start exec $post" if $post;
     say UF "expect fork"           if $type eq "BLAHBLAHTBD";    # TODO what to use here?
     say UF "expect daemon"         if $type eq "forking";
     say UF "expect stop"           if $type eq "notify";
-
     close UF;
 
     # Copy attributes into ourselves
@@ -364,21 +360,106 @@ sub add {
 }
 
 sub disable {
+    my $this = shift;
+    $this->{enabled} = 0;
+    return $this->_enadis();
 }
 
 sub enable {
+    my $this = shift;
+    $this->{enabled} = 1;
+    return $this->_enadis();
+}
+
+# Helper function - Enable or disable based on $this->{enabled} setting
+sub _enadis {
+    my $this = shift;
+    my $name = $this->{name};
+
+    # Inhale the file line by line, removing any existing start on / stop on clauses
+    my $unitfile = "$this->{root}/etc/init/$name.conf";
+    return $this->{err} = "Service file does not exist: $name"
+        if !-e $unitfile;
+    my $contents = q{};
+    open(UF, '<', $unitfile)
+        or return $this->{err} = "Cannot open unit file $unitfile: $!";
+    while (my $line = <UF>) {
+        next if $line =~ m{^\s*start\b}i;
+        next if $line =~ m{^\s*stop\b}i;
+        $contents .= $line;
+    }
+    close UF;
+
+    # If we want to be enabled, add those clauses
+    if ($this->{enabled}) {
+        $contents .= "\n";
+        $contents .= "start on runlevel [2345]\n";     # TODO map this somehow
+        $contents .= "stop  on runlevel [!2345]\n";    # TODO map this somehow
+    }
+
+    # Rewrite it to a temp, then rename into place (it's an atomic operation)
+    open(NF, '>', "$unitfile-new")
+        or return $this->{err} = "Cannot create unit file $unitfile-new: $!";
+    print NF $contents;
+    close NF;
+    rename "$unitfile-new", $unitfile
+        or return $this->{err} = "Cannot move new unit file $unitfile-new into place: $!";
+
+    return $this->{err} = q{};
 }
 
 sub load {
+    # TODO: used saved .conf file name; parse it.
+    # then also run `service $name status` to read current state
 }
 
 sub remove {
+    my $this = shift;
+    my $name = shift;
+    my %args;
+    System::Service::_process_args(\%args, @_);
+
+    # If we're removing it, we must first insure its stopped and disabled
+    $this->stop($name);    #ignore errors except...? XXX
+    $this->disable($name);
+
+    # Now remove the conf file
+    my $unitfile = "$this->{root}/etc/init/$name.conf";     # TODO; use the stored name
+    return $this->{err} = "Service does not exist: $name"
+        if !-e $unitfile && !$args{force};
+    my $n = unlink $unitfile;
+    return $this->{err} = "Cannot remove service $name: $!" unless $n;
+    $this->{name}    = q{};
+    $this->{prerun}  = q{};
+    $this->{run}     = q{};
+    $this->{postrun} = q{};
+    $this->{title}   = q{};
+    $this->{type}    = q{};
+    $this->{running} = 0;
+    $this->{enabled} = 0;
+    return $this->{err} = q{};
 }
 
 sub start {
+    my $this = shift;
+    return $this->{err} = "First load or add a service"
+        unless $this->{name};
+    my $out = qx(service $this->{name} start 2>&1);
+    return $this->{err} = "Cannot start $this->{name}: $!\n\t$out"
+        if $?;
+    $this->{running} = 1;
+    return $this->{err} = q{};
 }
 
 sub stop {
+    my $this = shift;
+    return $this->{err} = "First load or add a service"
+        unless $this->{name};
+    my $out = qx(service $this->{name} stop 2>&1);
+    return $this->{err} = "Cannot start $this->{name}: $!\n\t$out"
+        if $?;
+    $this->{running} = 0;
+    return $this->{err} = q{};
 }
 
 #       ------- o -------
@@ -556,4 +637,18 @@ The above copyright notice and this permission notice shall be included in all c
 THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =cut
+
+Other references:
+
+* How to find out if you're running SysV, upstart, or systemd:
+http://unix.stackexchange.com/questions/196166/how-to-find-out-if-a-system-uses-sysv-upstart-or-systemd-initsystem
+
+* Upstart intro & Cookbook:
+http://upstart.ubuntu.com/cookbook
+
+* Details on what systemd does when there are also SysV init.d scripts in place:
+http://unix.stackexchange.com/questions/233468/how-does-systemd-use-etc-init-d-scripts
+The answer by JdeBP seems most correct.  He also provides good furthur reading.
+
+
 
