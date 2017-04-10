@@ -25,7 +25,7 @@ use constant OK_ARGS      => qw/
     enabled
     started
     /;
-my %ALIAS_LIST = (  # Don't do 'use constant' for this
+my %ALIAS_LIST = (    # Don't do 'use constant' for this
     "description"   => "title",
     "lable"         => "title",
     "pre-start"     => "prerun",
@@ -123,7 +123,7 @@ sub _process_args {
     }
     if ($this->{type}) {
         $this->{type} = lc($this->{type});
-        $this->{type} = "simple"  if $this->{type} eq "service";
+        $this->{type} = "simple" if $this->{type} eq "service";
         $this->{type} = "oneshot" if $this->{type} eq "task";
         return $this->{err} = "Bad type, must be " . join(", ", OK_TYPES)
             unless grep $this->{type}, OK_TYPES;
@@ -377,10 +377,8 @@ sub _enadis {
     my $name = $this->{name};
 
     # Inhale the file line by line, removing any existing start on / stop on clauses
-    my $unitfile = "$this->{root}/etc/init/$name.conf";
-    return $this->{err} = "Service file does not exist: $name"
-        if !-e $unitfile;
     my $contents = q{};
+    my $unitfile = "$this->{root}/etc/init/$name.conf";
     open(UF, '<', $unitfile)
         or return $this->{err} = "Cannot open unit file $unitfile: $!";
     while (my $line = <UF>) {
@@ -409,7 +407,34 @@ sub _enadis {
 }
 
 sub load {
-    # TODO: used saved .conf file name; parse it.
+    my $this = shift;
+    my $name = shift;
+
+    # Clear everything
+    $this->{name}    = $name;
+    $this->{title}   = q{};
+    $this->{type}    = 'simple';
+    $this->{prerun}  = q{};
+    $this->{run}     = q{};
+    $this->{postrun} = q{};
+    $this->{running} = 0;
+    $this->{enabled} = 0;
+
+    # Parse the service file
+    my $unitfile = "$this->{root}/etc/init/$name.conf";
+    open(UF, '<', $unitfile)
+        or return $this->{err} = "Cannot open unit file $unitfile: $!";
+    while (my $line = <UF>) {
+        $this->{title}   = $1        if $line =~ m{^\s*description\s+(.+)$}i;
+        $this->{type}    = 'forking' if $line =~ m{^\s*expect\s+daemon\b}i;
+        $this->{type}    = 'notify'  if $line =~ m{^\s*expect\s+stop\b}i;
+        $this->{prerun}  = $1        if $line =~ m{^\s*pre-start\s+exec\s+(.+)$}i;
+        $this->{run}     = $1        if $line =~ m{^\s*exec\s+(.+)$}i;
+        $this->{postrun} = $1        if $line =~ m{^\s*post-start\s+exec\s+(.+)$}i;
+        $this->{enabled} = 1         if $line =~ m{^\s*start\s+on\b}i;
+    }
+    close UF;
+
     # then also run `service $name status` to read current state
 }
 
@@ -424,7 +449,7 @@ sub remove {
     $this->disable($name);
 
     # Now remove the conf file
-    my $unitfile = "$this->{root}/etc/init/$name.conf";     # TODO; use the stored name
+    my $unitfile = "$this->{root}/etc/init/$name.conf";    # TODO; use the stored name
     return $this->{err} = "Service does not exist: $name"
         if !-e $unitfile && !$args{force};
     my $n = unlink $unitfile;
