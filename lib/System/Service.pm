@@ -10,7 +10,7 @@ use constant INIT_UNKNOWN => "unknown";
 use constant INIT_SYSTEMV => "SysVinit";
 use constant INIT_UPSTART => "upstart";
 use constant INIT_SYSTEMD => "systemd";
-use constant OK_TYPES     => qw/simple service forking oneshot task/;
+use constant OK_TYPES     => qw/simple service forking notify oneshot task/;
 use constant OK_ARGS      => qw/
     root
     initsys
@@ -76,6 +76,10 @@ sub new {
         $this->load($this->{name});
     }
 
+    # Enabled or started on new?
+    $this->enable() if !$this->error && $this->{name} && $this->{enabled};
+    $this->start()  if !$this->error && $this->{name} && $this->{started};
+
     return $this;
 }
 
@@ -121,6 +125,9 @@ sub _process_args {
     if ($this->{name} && $this->{name} !~ m/^[\w\-\.\@\:]+$/i) {
         return $this->{err} = "Bad service name, must contain only a-zA-z0-9.-_\@:";
     }
+    if (length($this->{name}) > 64) {
+        return $this->{err} = "Bad service name, maximum length is 64 characters";
+    }
     if ($this->{type}) {
         $this->{type} = lc($this->{type});
         $this->{type} = "simple" if $this->{type} eq "service";
@@ -151,6 +158,7 @@ sub type    {return shift->{type};}
 
 #       ------- o -------
 package System::Service::unknown;
+our $VERSION = $System::Service::VERSION;
 our @ISA = qw/System::Service/;
 
 # Return the error from the constructor
@@ -164,6 +172,7 @@ sub stop    {return shift->{err};}
 
 #       ------- o -------
 package System::Service::systemd;
+our $VERSION = $System::Service::VERSION;
 our @ISA = qw/System::Service/;
 
 sub add {
@@ -211,7 +220,12 @@ sub add {
     $this->{run}     = $run;
     $this->{postrun} = $post;
 
-    return $this->{err} = q{};
+    # Enabled or started on new?
+    $this->{err} = q{};
+    $this->enable() if $args{enabled};
+    $this->start()  if !$this->error && $args{started};
+
+    return $this->{err};
 }
 
 sub disable {
@@ -315,6 +329,7 @@ sub stop {
 
 #       ------- o -------
 package System::Service::upstart;
+our $VERSION = $System::Service::VERSION;
 our @ISA = qw/System::Service/;
 
 sub add {
@@ -497,6 +512,7 @@ sub stop {
 
 #       ------- o -------
 package System::Service::SysV;
+our $VERSION = $System::Service::VERSION;
 our @ISA = qw/System::Service/;
 
 sub add {
@@ -526,24 +542,18 @@ __END__
 
 =head1 NAME
 
-System::Service - Manage system init services
+System::Service - Manage system init services - SysV, upstart, systemd
 
 =head1 VERSION
 
-Version 0.01
-
-=cut
-
-our $VERSION = '0.01';
-
+Version 2017.03.13
 
 =head1 SYNOPSIS
 
 Regardless of whether you use SysV, upstart, or systemd as your init system,
-this module makes it easy to add/remove, enable/disable for boot, start, stop, and 
-check status on your system services.  
-It's essentially a wrapper around each of the corresponding init system's 
-equivalent functionality.
+this module makes it easy to add/remove, enable/disable for boot, start/stop,
+and check status on your system services.  It's essentially a wrapper around
+each of the corresponding init system's equivalent functionality.
 
     use v5.10.0;
     use System::Service;
@@ -552,11 +562,11 @@ equivalent functionality.
     # Show the underlying init system
     say $svc->initsys;
 
-    # Load an existing service
+    # Load an existing service, to get info or check state
     my $err = $svc->load("foo-service");
     if ($err) { ... }
        # --or--
-    $svc = System::Service->new(load => "foo-service");
+    $svc = System::Service->new(name => "foo-service");
 
     # Print service info
     say $svc->name;
@@ -567,7 +577,7 @@ equivalent functionality.
 
     # Make new service known to the system (creates .service, .conf, or /etc/init.d file)
     $err = $svc->add(name => "foo-daemon",
-                     run => "/usr/bin/foo-daemon -D -p123");
+                     run  => "/usr/bin/foo-daemon -D -p1234");
        # --or--
     $svc = System::Service->new( ...same args...)
     if ($svc->error) { ... }
@@ -587,31 +597,187 @@ equivalent functionality.
 
 =head1 SUBROUTINES/METHODS
 
-=head2 function1
+=head2 C<new>
 
-=cut
+Constructor.
+With no arguments, it determines the type of init system in use, and creates an empty service 
+object, which can later be add()'d or load()'d.  
 
-sub new {
-}
+    my $svc = new System::Service();
+    if ($svc->error) { ... }
 
-=head2 function2
+With at least both I<name> and I<run> passed, creates a new service on the system.
+This is the same as calling an empty new() then calling add() with those arguments.
 
-=cut
+    my $svc = new System::Service(name => 'foo-daemon',
+                                  run  => '/usr/bin/foo-daemon -D -p1234');
+    if ($svc->error) { ... }
 
-sub add {
-}
+When called with I<name> but NOT I<run>, it will attempt to load() an existing service, if any.
 
-service job types:
+    my $svc = new System::Service(name => 'foo-daemon');
+    if ($svc->error) { ... }
 
-    simple  || service
-    forking --> upstart task with 'expect daemon'
-    notify  --> upstart task with 'expect stop'
-    oneshot || task
+Takes the same arguments as I<add()>.
+Remember to check the object for an error after creating it.
+
+=head2 C<deduce_initsys>
+
+This is an internal function called by new().
+
+It examines the system and determines what init system is in use.
+To find out what init system is in use, call C<initsys()>.
+
+=head2 C<prerun>
+
+Returns the pre-run command(s) defined for the service.
+For systemd, this is I<ExecStartPre>.
+For upstart, this is I<pre-start exec>.
+For SysVinit, these are pre-commands within the /etc/init.d script.
+Multiple commands may exist; call this in list context to get them all.
+
+=head2 c<run>
+
+Returns the run command(s) defined for the service.
+For systemd, this is I<ExecStart>.
+For upstart, this is I<exec>.
+For SysVinit, these are the main commands within the /etc/init.d script.
+Multiple commands may exist; call this in list context to get them all.
+
+Note - this does not 'run' the service now; it's just an accessor to 
+return what's defined to be run.  To start the service now, use C<start()>.
+
+=head2 C<postrun>
+
+Returns the post-run command(s) defined for the service.
+For systemd, this is I<ExecStartPost>.
+For upstart, this is I<post-start exec>.
+For SysVinit, these are the post-commands within the /etc/init.d script.
+Multiple commands may exist; call this in list context to get them all.
+
+=head2 C<enabled>
+
+Returns a true/false value that indicates if the service is enabled to start at boot.
+
+=head2 C<error>
+
+Returns the current error status string for the service.
+If no error (all is OK), returns an empty string which evaluates to false.
+The normal way to use this is like:
+
+    $svc->some_function(...);
+    if ($svc->error) { ...handle error... }
+
+=head2 C<initsys>
+
+Returns the name of the init system in use.
+Possible values are 'unknown', 'SysVinit', 'upstart', or 'systemd'.
+
+=head2 C<name>
+
+Returns the service name.
+
+=head2 C<running>
+
+Returns true/false to indicate if the service is currently running.
+
+=head2 C<title>
+
+Returns a string that describes the service.
+For systed, this is the I<Description> option.
+For upstart, this is the I<description> stanza.
+For SysVinit, this is the I<Short-Description> in the LSB header.
+
+=head2 C<type>
+
+Returns the service type.
+Possibe values are simple, forking, notify, or oneshot.
+For upstart, these are the mappings:
+
+=over
+
+=item *
+
+'simple' is the job type 'service' without an 'expect' stanza;
+
+=item *
+
+'oneshot' is the jopb type 'task' without an 'expect' stanza;
+
+=item *
+
+'forking' is the job type 'task' with 'expect daemon' stanza;
+
+=item *
+
+'notify' is the job type 'task' with 'expect stop' stanza.
+
+=back
+
+For SysVinit, these service types are simulated.
 
 
-    run      || exec
-    prerun   || pre-start
-    postrun  || post-start
+=head2 C<add>
+
+Adds a new service to the system.
+Must be run as the root user.
+This funciton will create necessary unit file, job file, or init script(s) on the system.
+If the service already exists, an error is returned.
+By default, the service is not started nor enambed for boot.
+
+You must provide at least the I<name> and I<run> arguments to add a new service.
+
+    $svc->add(name    => "foo-service",           # Required identifier for service
+              title   => "Handles foo requests",  # Optional description
+              prerun  => "/bin/foo-prep -a",      # Optional pre-start command(s)
+              run     => "/bin/foo-daemon -D",    # Required command(s) to run the service
+              postrun => "/bin/foo-fix -x",       # Optional post-start command(s)
+              enabled => 1,                       # Optional, enable to start at boot
+              started => 1,                       # Optional, start the service now
+             );
+    if ($svc->error) {
+        die "*** Cannot add service: " . $svc->error;
+    }
+
+The service name must be a simple identifier, consisting only of alphanumeric characters,
+dash "-", dot ".", underscore "_", colon ":", or the at-sign "@".  
+The maximum length is 64 characters.
+
+The prerun, run, and postrun commands must use absolute paths to the executable.
+Multiple commands can be specified by passing an arrayref:
+
+              run => ["/bin/foo-red -a 2",
+                      "/bin/foo-daemon -D -p1234"]
+
+To un-do an C<add()>, use C<remove()>.
+
+=head2 C<disable>
+
+Disables the service so that it will not start at boot.  This is the opposite of C<enable>.
+This does not affect a running service instance; it only affects what happens at boot-time.
+
+=head2 C<enable>
+
+Enables the service so that it will start at boot.  This is the opposite of C<disable>.
+This does not affect a stopped service instance; it only affects what happens at boot-time.
+
+=head2 C<load>
+
+Load the definition and status for the given service name.  Example:
+
+    $svc->load("foo-service");
+    if ($svc->error) { ... }
+    say $svc->running ? "Foo is alive" : "Foo is not running";
+
+=head2 C<remove>
+
+Removes the service definition from the system; this makes the service unknown.
+Any unit files, job files, or init scripts will be deleted.
+If the service is running, it will be stopped first.
+If the service is enabled for boot, it will be disabled.
+
+To use this function, you must add() or load() it first.
+
 
 =head1 AUTHOR
 
@@ -663,11 +829,20 @@ This program is released under the following license: MIT
 
 Copyright 2017 Uncle Spook.   https://github.com/spook/service
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated documentation files (the "Software"), to deal in the Software without restriction, including without limitation the rights to use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and 
+associated documentation files (the "Software"), to deal in the Software without restriction, 
+including without limitation the rights to use, copy, modify, merge, publish, distribute, 
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is 
+furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all copies or 
+substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT 
+NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =cut
 
