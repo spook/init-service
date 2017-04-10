@@ -157,6 +157,7 @@ sub title   {return shift->{title};}
 sub type    {return shift->{type};}
 
 #       ------- o -------
+
 package System::Service::unknown;
 our $VERSION = $System::Service::VERSION;
 our @ISA = qw/System::Service/;
@@ -171,6 +172,7 @@ sub start   {return shift->{err};}
 sub stop    {return shift->{err};}
 
 #       ------- o -------
+
 package System::Service::systemd;
 our $VERSION = $System::Service::VERSION;
 our @ISA = qw/System::Service/;
@@ -328,6 +330,7 @@ sub stop {
 }
 
 #       ------- o -------
+
 package System::Service::upstart;
 our $VERSION = $System::Service::VERSION;
 our @ISA = qw/System::Service/;
@@ -511,6 +514,7 @@ sub stop {
 }
 
 #       ------- o -------
+
 package System::Service::SysV;
 our $VERSION = $System::Service::VERSION;
 our @ISA = qw/System::Service/;
@@ -636,7 +640,7 @@ For upstart, this is I<pre-start exec>.
 For SysVinit, these are pre-commands within the /etc/init.d script.
 Multiple commands may exist; call this in list context to get them all.
 
-=head2 c<run>
+=head2 C<run>
 
 Returns the run command(s) defined for the service.
 For systemd, this is I<ExecStart>.
@@ -827,7 +831,8 @@ L<http://search.cpan.org/dist/System-Service/>
 
 This program is released under the following license: MIT
 
-Copyright 2017 Uncle Spook.   https://github.com/spook/service
+Copyright 2017 Uncle Spook.
+See https://github.com/spook/service
 
 Permission is hereby granted, free of charge, to any person obtaining a copy of this software and 
 associated documentation files (the "Software"), to deal in the Software without restriction, 
@@ -845,6 +850,21 @@ DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =cut
+
+To Do:
+* Rename the whole thing to somethign better, perhaps:  InitSys::Service ?
+* sysVinit implementation
+* shutdown commands: stop, prestop, but no poststop
+* commands can be list ref's
+    - and if non-oneshot for systemd, create/remove temp /bin/sh script
+* allow to specify user & group for service
+* Watchdog capability
+* Mechanism to return warnings, then
+    - is_warn(), is_error(), is_ok() ... or warning() funcs?
+    - add if existing is warning
+    - remove not there is warning
+* Handle other initsys's like launchd, Service Management Facility, runit, Mudur, procd...
+
 
 Other references:
 
