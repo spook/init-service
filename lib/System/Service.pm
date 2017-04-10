@@ -339,7 +339,7 @@ sub add {
     open(UF, '>', $unitfile)
         or return $this->{err} = "Cannot create unit file: $!";
     say UF "# upstart init script for the $name service";
-    say UF "Description  \"$title\"";
+    say UF "description  \"$title\"";
     say UF "pre-start exec $pre" if $pre;
     say UF "exec $run";
     say UF "post-start exec $post" if $post;
@@ -352,9 +352,9 @@ sub add {
     $this->{name}    = $name;
     $this->{title}   = $title;
     $this->{type}    = $type;
-    $this->{prerun}  = $post;
+    $this->{prerun}  = $pre;
     $this->{run}     = $run;
-    $this->{postrun} = $pre;
+    $this->{postrun} = $post;
 
     return $this->{err} = q{};
 }
@@ -423,9 +423,9 @@ sub load {
     # Parse the service file
     my $unitfile = "$this->{root}/etc/init/$name.conf";
     open(UF, '<', $unitfile)
-        or return $this->{err} = "Cannot open unit file $unitfile: $!";
+        or return $this->{err} = "No such service $name: cannot open $unitfile: $!";
     while (my $line = <UF>) {
-        $this->{title}   = $1        if $line =~ m{^\s*description\s+(.+)$}i;
+        $this->{title}   = $1        if $line =~ m{^\s*description\s+"?(.+?)"?\s*$}i;
         $this->{type}    = 'forking' if $line =~ m{^\s*expect\s+daemon\b}i;
         $this->{type}    = 'notify'  if $line =~ m{^\s*expect\s+stop\b}i;
         $this->{prerun}  = $1        if $line =~ m{^\s*pre-start\s+exec\s+(.+)$}i;
