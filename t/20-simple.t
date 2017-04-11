@@ -13,7 +13,7 @@ SKIP: {
         if $>;
 
     # Add & remove
-    note "--- Create a dummy service ---";
+    diag "--- Create a dummy service ---";
     my $svc = System::Service->new();
     BAIL_OUT "Cannot create service: " . $svc->error
         if $svc->error;
@@ -57,8 +57,8 @@ SKIP: {
     ok !$svc->enabled(), "  Not enabled for boot";
 
     # Enable it for boot
-    note " ";
-    note "--- Enable boot of the dummy service ---";
+    diag " ";
+    diag "--- Enable boot of the dummy service ---";
     $svc->enable();
     is $svc->error, q{}, "enable() status";
     ok !$svc->running(), "  Not running";
@@ -79,8 +79,8 @@ SKIP: {
     ok $svc->enabled(), " Is enabled for boot ";
 
     # Disable from boot
-    note " ";
-    note "-- - Disable boot of the dummy service-- - ";
+    diag " ";
+    diag "-- - Disable boot of the dummy service-- - ";
     $svc->disable();
     is $svc->error, q{}, " disable() status ";
     ok !$svc->running(), " Not running ";
@@ -101,8 +101,8 @@ SKIP: {
     ok !$svc->enabled(), "  Not enabled for boot";
 
     # Start it
-    note " ";
-    note "--- Start the dummy service ---";
+    diag " ";
+    diag "--- Start the dummy service ---";
     $svc->start();
     is $svc->error, q{}, "start() status";
     ok $svc->running(), "  Is running";
@@ -128,8 +128,8 @@ SKIP: {
     isnt $out, q{}, " Service found on system ";
 
     # Stop it
-    note " ";
-    note "-- - Stop the dummy service-- - ";
+    diag " ";
+    diag "-- - Stop the dummy service-- - ";
     $svc->stop();
     is $svc->error, q{}, " stop() status ";
     ok !$svc->running(), " Not running ";
@@ -150,8 +150,8 @@ SKIP: {
     ok !$svc->enabled(), "  Not enabled for boot";
 
     # Remove it
-    note " ";
-    note "--- Remove the dummy service ---";
+    diag " ";
+    diag "--- Remove the dummy service ---";
     $svc = System::Service->new();    # make new object
     ok $svc, "Service object created for remove";
     $svc->remove($svc_nam);

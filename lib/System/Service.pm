@@ -1,6 +1,6 @@
 package System::Service;
 
-use 5.10.0;    # for // operator and say() function
+use 5.8.0;
 use strict;
 use warnings;
 
@@ -112,7 +112,7 @@ sub _process_args {
     while (@_) {
         my $k = lc shift;
         $k =~ s/^\s*(.+?)\s*$/$1/;    # trim
-        my $v = shift // q{};         #/
+        my $v = shift || q{};         # Want to use // but Perl 5.8
         $this->{$k} = $v;
     }
 
@@ -184,7 +184,7 @@ sub add {
     System::Service::_process_args(\%args, @_);
     return $this->{err} = $args{err} if $args{err};
     my $name  = $args{name};
-    my $title = $args{title} // q{};       #/
+    my $title = $args{title} || q{};
     my $type  = $args{type} || "simple";
     my $pre   = $args{prerun};
     my $run   = $args{run};
@@ -199,19 +199,19 @@ sub add {
 
     open(UF, '>', $initfile)
         or return $this->{err} = "Cannot create init file $initfile: $!";
-    say UF "[Unit]";
-    say UF "Description=$title";
+    print UF "[Unit]\n";
+    print UF "Description=$title\n";
 
-    say UF "";
-    say UF "[Service]";
-    say UF "ExecStartPre=$pre" if $pre;
-    say UF "ExecStart=$run";
-    say UF "ExecStartPost=$post" if $post;
-    say UF "Type=$type";
+    print UF "\n";
+    print UF "[Service]\n";
+    print UF "ExecStartPre=$pre\n" if $pre;
+    print UF "ExecStart=$run\n";
+    print UF "ExecStartPost=$post\n" if $post;
+    print UF "Type=$type\n";
 
-    say UF "";
-    say UF "[Install]";
-    say UF "WantedBy=multi-user.target";    # TODO... how to map this?
+    print UF "\n";
+    print UF "[Install]\n";
+    print UF "WantedBy=multi-user.target\n";    # TODO... how to map this?
 
     close UF;
 
@@ -346,7 +346,7 @@ sub add {
     System::Service::_process_args(\%args, @_);
     return $this->{err} = $args{err} if $args{err};
     my $name  = $args{name};
-    my $title = $args{title} // q{};       #/
+    my $title = $args{title} || q{};
     my $type  = $args{type} || "simple";
     my $pre   = $args{prerun};
     my $run   = $args{run};
@@ -360,14 +360,14 @@ sub add {
         if !$args{force} && -e $initfile;
     open(UF, '>', $initfile)
         or return $this->{err} = "Cannot create init file $initfile: $!";
-    say UF "# upstart init script for the $name service";
-    say UF "description  \"$title\"";
-    say UF "pre-start exec $pre" if $pre;
-    say UF "exec $run";
-    say UF "post-start exec $post" if $post;
-    say UF "expect fork"           if $type eq "BLAHBLAHTBD";    # TODO what to use here?
-    say UF "expect daemon"         if $type eq "forking";
-    say UF "expect stop"           if $type eq "notify";
+    print UF "# upstart init script for the $name service\n";
+    print UF "description  \"$title\"\n";
+    print UF "pre-start exec $pre\n" if $pre;
+    print UF "exec $run\n";
+    print UF "post-start exec $post\n" if $post;
+    print UF "expect fork\n"           if $type eq "BLAHBLAHTBD";    # TODO what to use here?
+    print UF "expect daemon\n"         if $type eq "forking";
+    print UF "expect stop\n"           if $type eq "notify";
     close UF;
 
     # Copy attributes into ourselves
@@ -529,7 +529,7 @@ sub stop {
 
 #       ------- o -------
 
-package System::Service::SysV;
+package System::Service::SysVinit;
 our $VERSION = $System::Service::VERSION;
 our @ISA     = qw/System::Service/;
 
@@ -539,7 +539,7 @@ sub add {
     System::Service::_process_args(\%args, @_);
     return $this->{err} = $args{err} if $args{err};
     my $name  = $args{name};
-    my $title = $args{title} // q{};       #/
+    my $title = $args{title} || q{};
     my $type  = $args{type} || "simple";
     my $pre   = $args{prerun};
     my $run   = $args{run};
@@ -672,7 +672,7 @@ sub load {
     $this->{enabled} = 0;
 
     # Parse the init file
-    my $initfile = $this->{initfile} = "$this->{root}/etc/init/$name.conf";
+    my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
     open(UF, '<', $initfile)
         or return $this->{err} = "No such service $name: cannot open $initfile: $!";
     while (my $line = <UF>) {
@@ -1067,6 +1067,7 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 =cut
 
 To Do:
+* Make us run on Perl 5.8  -- DONE
 * Rename the whole thing to something better, perhaps:  InitSys::Service ?
 * sysVinit implementation
 * shutdown commands: stop, prestop, but no poststop
