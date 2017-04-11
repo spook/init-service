@@ -491,6 +491,8 @@ sub remove {
         if !-e $initfile && !$args{force};
     my $n = unlink $initfile;
     return $this->{err} = "Cannot remove service $name: $!" unless $n;
+
+    # Clear all
     $this->{name}    = q{};
     $this->{prerun}  = q{};
     $this->{run}     = q{};
@@ -659,7 +661,7 @@ sub load {
     my $this = shift;
     my $name = shift;
 
-    # Clear everything
+    # Reset everything
     $this->{name}    = $name;
     $this->{title}   = q{};
     $this->{type}    = 'simple';
@@ -706,10 +708,40 @@ sub load {
 }
 
 sub remove {
+    my $this = shift;
 
     # Remove script
+    if ($this->{initfile}) {
+        my $n = unlink $this->{initfile};
+        return $this->{err} = "Cannot remove init file $this->{initfile}: $!" if !$n;
+    }
 
     # Remove links: update-rc.d remove ...
+    my $cmdurc = "$this->{root}/usr/sbin/update-rc.d";
+    my $cmdchk = "$this->{root}/sbin/chkconfig";
+    if (-x $cmdurc) {
+        my $out = qx($cmdurc $this->{name} remove 2>&1);
+        return $this->{err} = "Cannot remove init links for $this->{name}: $!\n\t$out" if $?;
+    }
+    elsif (-x $cmdchk) {
+        my $out = qx($cmdchk --del $this->{name} 2>&1) || q{};
+        return $this->{err} = "Cannot remove init links for $this->{name}: $!\n\t$out" if $?;
+    }
+    else {
+        return $this->{err} = "Cannot remove init links for $this->{name}: no update-rc.d nor chkconfig";
+    }
+
+    # Clear all
+    $this->{name}    = q{};
+    $this->{prerun}  = q{};
+    $this->{run}     = q{};
+    $this->{postrun} = q{};
+    $this->{title}   = q{};
+    $this->{type}    = q{};
+    $this->{running} = 0;
+    $this->{enabled} = 0;
+    $this->{initfile} = q{};
+    return $this->{err} = q{};
 }
 
 sub start {
