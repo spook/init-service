@@ -219,6 +219,8 @@ sub add {
     print UF "WantedBy=multi-user.target\n";    # TODO... how to map this?
 
     close UF;
+    chmod 0644, $initfile
+        or return $this->{err} = "Cannot chmod 644 file $initfile: $!";
 
     # Copy attributes into ourselves
     $this->{name}    = $name;
@@ -374,6 +376,8 @@ sub add {
     print UF "expect daemon\n"         if $type eq "forking";
     print UF "expect stop\n"           if $type eq "notify";
     close UF;
+    chmod 0644, $initfile
+        or return $this->{err} = "Cannot chmod 644 file $initfile: $!";
 
     # Copy attributes into ourselves
     $this->{name}    = $name;
@@ -1149,15 +1153,13 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 =cut
 
 To Do:
-* sysv: handle type, using -b to start-stop-daemon as appropriate
-* chmod/chown initfiles
 * Rename the whole thing to something better, perhaps:  InitSys::Service ?
-* sysVinit implementation
 * shutdown commands: stop, prestop, but no poststop
 * commands can be list ref's
     - and if non-oneshot for systemd, create/remove temp /bin/sh script
 * allow to specify user & group for service
 * Watchdog capability
+
 * Mechanism to return warnings, then
     - is_warn(), is_error(), is_ok() ... or warning() funcs?
     - add if existing is warning
