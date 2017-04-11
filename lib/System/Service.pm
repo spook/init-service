@@ -622,12 +622,14 @@ case "\$1" in
 	fi
 	;;
 
+# Check if the daemon is running or not.
+#   Standard LSB functions like status_of_proc() didn't appear until recently,
+#   so we cannot depend upon them.  Instead, do a hacky search for the daemon's
+#   executable
   status)
-    echo PID file = $root/var/run/$name.pid
-    echo contents:
-    cat $root/var/run/$name.pid
-    echo '---'
-	status_of_proc -p $root/var/run/$name.pid $daemon $name && exit 0 || exit \$?
+#	status_of_proc -p $root/var/run/$name.pid $daemon $name && exit 0 || exit \$?
+    ps wax | grep -v gep | grep -q -1 '$daemon'
+    echo $name is running
 	;;
 
   *)
@@ -744,7 +746,7 @@ sub load {
 
     # Run the init's status to see if it's running
     my $out = qx($initfile status 2>&1);
-    $this->{running} = 1 if !$? && $out =~ m{\b/is\s+running\b}i;
+    $this->{running} = 1 if !$? && ($out =~ m{\bis\s+running}i);
 
     # Use update-rc.d or chkconfig to check if it's enabled at boot
     my $cmdurc = "$this->{root}/usr/sbin/update-rc.d";
@@ -754,7 +756,6 @@ sub load {
         # We don't use the command here - but ensure it's there
         # Instead we look for start links at runlevels 2 3 4 5
         my @startlinks = glob("$this->{root}/etc/rc[2345].d/S[0-9][0-9]$name");
-#XXX print "\nGot these startlinks:\n\t<".join(">\n\t<", @startlinks).">\n---\n";
         $this->{enabled} = @startlinks > 0 ? 1 : 0;
     }
     elsif (-x $cmdchk) {
