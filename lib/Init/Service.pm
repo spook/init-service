@@ -1153,7 +1153,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 =cut
 
 To Do:
-* Rename the whole thing to something better, perhaps:  InitSys::Service ?
 * shutdown commands: stop, prestop, but no poststop
 * commands can be list ref's
     - and if non-oneshot for systemd, create/remove temp /bin/sh script
