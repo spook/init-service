@@ -1,50 +1,52 @@
 #!/usr/bin/perl -w
 use strict;
-
-# I'm first implementing this in Perl, because I'm fast at Perl.
-# Then I'll convert it to a /bin/sh script, at which I'm slower doing.
-# Thus, this Perl script is temporary and will go away.
-
-my $ITYP_SYSV    = 'v';
-my $ITYP_UPSTART = 'u';
-my $ITYP_SYSTEMD = 'd';
+use warnings;
 
 # dispatch
-usage("*** Missing command", 1) unless @ARGV >= 2;
-my $svc = $ARGV[0];
-my $cmd = lc $ARGV[1];
-my $ityp
-    = -r "/etc/init/$svc.conf"              ? $ITYP_UPSTART
-    : -r "/etc/systemd/system/$svc.service" ? $ITYP_SYSTEMD
-    : -r "/etc/init.d/$svc"                 ? $ITYP_SYSV
-    :   usage("*** Service name '$svc' unknown", 2);
-
-$cmd eq 'start'         ? do_start($svc)
-    : $cmd eq 'stop'    ? do_stop($svc)
-    : $cmd eq 'restart' ? do_restart($svc)
-    : $cmd eq 'reload'  ? do_reload($svc)
-    : $cmd eq 'status'  ? do_status($svc)
-    : $cmd eq 'enable'  ? do_enable($svc)
-    : $cmd eq 'disable' ? do_disable($svc)
-    : $cmd eq 'install' ? do_install($svc)
-    : $cmd eq 'remove'  ? do_remove($svc)
-    :                     usage("*** Unknown command '$cmd'", 1);
+usage("*** Missing function", 1) unless @ARGV >= 2;
+my $func = lc $ARGV[0];
+my $svc = $ARGV[1];
+$func eq 'start'         ? do_start($svc)
+    : $func eq 'stop'    ? do_stop($svc)
+#    : $func eq 'restart' ? do_restart($svc)
+#    : $func eq 'reload'  ? do_reload($svc)
+    : $func eq 'status'  ? do_status($svc)
+    : $func eq 'enable'  ? do_enable($svc)
+    : $func eq 'disable' ? do_disable($svc)
+    : $func eq 'add'     ? do_install($svc)
+    : $func eq 'remove'  ? do_remove($svc)
+    :                     usage("*** Unknown function '$func'", 1);
 exit 0;
 
 #                           ------- o -------
 
 sub usage {
-    print q{Usage: service service_name command
-  Commands:
+    print q{Usage: init-service FUNCTION SVCNAME [options...]
+
+  Functions:
     start   - Runs the service; if already running, an error is emitted
     stop    - Stops a running service; if not running, an error is emitted
     restart - Stops then starts a service
     reload  - Sends a SIGHUP to the service, if running
-    status  - Displays the status of the service
-    enable  - Mark a service to be started at boot; does not affect current state
+    enable  - Mark a service start at boot; does not affect current state
     disable - Make service not start at boot; does not affect current state
-    install - Make the service known to the system
+    add     - Create (define) the service on the system
     remove  - Makes the service unknown to the system; will do a stop and disable first
+    status  - Displays the status of the service
+    is-started - Check if the service is running now
+    is-enabled - Check if the service is enabled to start at boot
+
+  General Options:
+    -h --help     Show this usage help
+    -v --verbose  Show more output
+
+  Options for 'add' function:
+    -t --type TYPE    Type of service, one of: simple forking notify oneshot
+    -r --run CMD      Command and args to run the service
+    -p --prerun CMD   Optional command and args to run before starting the service
+    -o --postrun CMD  Optional command and args to run before starting the service
+    -e --enable       Enable the service so it starts at boot
+    -s --start        Start the service now, after adding it
 };
     print shift . "\n" if @_;
     exit(shift || 0);
@@ -88,4 +90,147 @@ sub do_install {
 sub do_remove {
     must_be_root();
 }
+
+
+__END__
+
+=head1 NAME
+
+init-service - add, remove, enable, disable, start, stop, and system services
+
+=head1 VERSION
+
+Version 2017.03.13
+
+=head1 SYNOPSIS
+
+    # Define (create/add) a new system service called foo-daemon
+    #   Set it to start on boot and also run it right now
+    init-service add foo-daemon \
+        --run '/usr/bin/foo-daemon -D -p1234' \
+        --enabled --start
+
+    init-service start foo-daemon   # Run it now
+    init-service stop  foo-daemon   # Stop it now
+    init-service enable foo-daemon  # Make it start at boot
+    init-service disable foo-daemon # Make it not start at boot
+    init-service remove foo-daemon  # Remove it completly
+    init-service status foo-daemon  # Show its status
+
+
+=head1 DESCRIPTION
+
+Regardless of whether you use SysV, upstart, or systemd as your init system,
+this command makes it easy to add/remove, enable/disable for boot, start/stop,
+and check status on your system services.  
+
+You no longer need to write init.d scripts, upstart .conf files, nor systemd
+unit files!  This command handles the creation/removal of the init file for 
+your service and the management of the underlying init system so your service
+is started or not at boot, can be started or stopped immediately, and also to 
+check status on your service. 
+
+You must be root to use this command.
+
+=head1 FUNCTIONS
+
+=head2 C<add>
+
+=head2 C<remove>
+
+=head2 C<start>
+
+=head2 C<stop>
+
+=head2 C<enable>
+
+=head2 C<disable>
+
+=head2 C<status>
+
+Display the status and other info about the service.
+Exits with 0 for a known service, non-zero for an unknown service.
+Example:
+
+    # init-service foo-daemon status
+    Enabled/Running
+    Init System: upstart
+    Init File:   /etc/init/foo-daemon.conf
+
+=head2 C<is-started>
+
+Checks if the service is currently running; exits with 0 if it is, non-zero if not.
+Useful within shell scripts; for a more human-friendly output use the I<status> function.
+
+=head2 C<is-enabled>
+
+Checks if the service would start at boot; exits with 0 if it is, non-zero if not.
+Useful within shell scripts; for a more human-friendly output use the I<status> function.
+
+=head1 AUTHOR
+
+Uncle Spook, C<< <spook at MisfitMountain.org> >>
+
+=head1 BUGS
+
+Please report any bugs or feature requests to C<bug-init-service at rt.cpan.org>, or through
+the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Init-Service>.  
+I will be notified, and then you'll automatically be notified of progress on your 
+bug as I make changes.
+
+=head1 SUPPORT
+
+You can find documentation for this utility and module with the perldoc command.
+
+    perldoc Init::Service
+
+You can also look for information at:
+
+=over 4
+
+=item * RT: CPAN's request tracker (report bugs here)
+
+L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Init-Service>
+
+=item * AnnoCPAN: Annotated CPAN documentation
+
+L<http://annocpan.org/dist/Init-Service>
+
+=item * CPAN Ratings
+
+L<http://cpanratings.perl.org/d/Init-Service>
+
+=item * Search CPAN
+
+L<http://search.cpan.org/dist/Init-Service/>
+
+=back
+
+
+=head1 ACKNOWLEDGEMENTS
+
+
+=head1 LICENSE AND COPYRIGHT
+
+This program is released under the following license: MIT
+
+Copyright 2017 Uncle Spook.
+See https://github.com/spook/service
+
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and 
+associated documentation files (the "Software"), to deal in the Software without restriction, 
+including without limitation the rights to use, copy, modify, merge, publish, distribute, 
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is 
+furnished to do so, subject to the following conditions:
+
+The above copyright notice and this permission notice shall be included in all copies or 
+substantial portions of the Software.
+
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT 
+NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+=cut
 
