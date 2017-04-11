@@ -286,7 +286,7 @@ sub load {
 
 sub remove {
     my $this = shift;
-    my $name = shift;
+    my $name = shift || $this->{name};
     my %args;
     System::Service::_process_args(\%args, @_);
 
@@ -477,7 +477,7 @@ sub load {
 
 sub remove {
     my $this = shift;
-    my $name = shift;
+    my $name = shift || $this->{name};
     my %args;
     System::Service::_process_args(\%args, @_);
 
@@ -575,7 +575,7 @@ umask 022
 . /lib/lsb/init-functions
 export PATH=/sbin:/bin:/usr/sbin:/usr/bin
 
-case "$1" in
+case "\$1" in
   start)
 	log_daemon_msg "Starting $title" "$name" || true
 	if start-stop-daemon --start --quiet --oknodo --pidfile /var/run/$name.pid --exec $daemon -- $opts; then
@@ -615,7 +615,7 @@ case "$1" in
 	;;
 
   status)
-	status_of_proc -p /var/run/$name.pid $daemon $name && exit 0 || exit $?
+	status_of_proc -p /var/run/$name.pid $daemon $name && exit 0 || exit \$?
 	;;
 
   *)
@@ -632,6 +632,8 @@ __EOSCRIPT__
         or return $this->{err} = "Cannot create init file $initfile: $!";
     print IF $script;
     close IF;
+    chmod 0755, $initfile
+        or return $this->{err} = "Cannot chmod 755 file $initfile: $!";
 
     # Copy attributes into ourselves
     $this->{name}    = $name;
@@ -652,9 +654,49 @@ __EOSCRIPT__
 }
 
 sub disable {
+    my $this = shift;
+
+    # Disable it for boot at all runlevels
+    my $cmdurc = "$this->{root}/usr/sbin/update-rc.d";
+    my $cmdchk = "$this->{root}/sbin/chkconfig";
+    if (-x $cmdurc) {
+        my $out = qx($cmdurc -f $this->{name} remove 2>&1);
+        return $this->{err} = "Cannot clear init links for $this->{name}: $!\n\t$out" if $?;
+           $out = qx($cmdurc $this->{name} stop 72 0 1 2 3 4 5 6 S . 2>&1);
+        return $this->{err} = "Cannot stop init links for $this->{name}: $!\n\t$out" if $?;
+    }
+    elsif (-x $cmdchk) {
+        my $out = qx($cmdchk --levels 0123456 $this->{name} off 2>&1) || q{};
+        return $this->{err} = "Cannot stop init links for $this->{name}: $!\n\t$out" if $?;
+    }
+    else {
+        return $this->{err} = "Cannot stop init links for $this->{name}: no update-rc.d nor chkconfig";
+    }
+
+    $this->{enabled} = 0;
+    return $this->{err} = q{};
 }
 
 sub enable {
+    my $this = shift;
+
+    # Enable it for boot with the default runlevels
+    my $cmdurc = "$this->{root}/usr/sbin/update-rc.d";
+    my $cmdchk = "$this->{root}/sbin/chkconfig";
+    if (-x $cmdurc) {
+        my $out = qx($cmdurc $this->{name} defaults 28 72 2>&1);
+        return $this->{err} = "Cannot add init links for $this->{name}: $!\n\t$out" if $?;
+    }
+    elsif (-x $cmdchk) {
+        my $out = qx($cmdchk --add $this->{name} 2>&1) || q{};
+        return $this->{err} = "Cannot add init links for $this->{name}: $!\n\t$out" if $?;
+    }
+    else {
+        return $this->{err} = "Cannot add init links for $this->{name}: no update-rc.d nor chkconfig";
+    }
+
+    $this->{enabled} = 1;
+    return $this->{err} = q{};
 }
 
 sub load {
@@ -700,6 +742,7 @@ sub load {
         # We don't use the command here - but ensure it's there
         # Instead we look for start links at runlevels 2 3 4 5
         my @startlinks = glob("$this->{root}/etc/rc[2345].d/S[0-9][0-9]$name");
+#XXX print "\nGot these startlinks:\n\t<".join(">\n\t<", @startlinks).">\n---\n";
         $this->{enabled} = @startlinks > 0 ? 1 : 0;
     }
     elsif (-x $cmdchk) {
@@ -713,6 +756,14 @@ sub load {
 
 sub remove {
     my $this = shift;
+    my $name = shift || $this->{name};
+    my %args;
+    System::Service::_process_args(\%args, @_);
+    my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
+
+    # If we're removing it, we must first insure its stopped and disabled
+    $this->stop($name);    #ignore errors except...? XXX
+    $this->disable($name);
 
     # Remove script
     if ($this->{initfile}) {
@@ -724,15 +775,15 @@ sub remove {
     my $cmdurc = "$this->{root}/usr/sbin/update-rc.d";
     my $cmdchk = "$this->{root}/sbin/chkconfig";
     if (-x $cmdurc) {
-        my $out = qx($cmdurc $this->{name} remove 2>&1);
-        return $this->{err} = "Cannot remove init links for $this->{name}: $!\n\t$out" if $?;
+        my $out = qx($cmdurc $name remove 2>&1);
+        return $this->{err} = "Cannot remove init links for $name: $!\n\t$out" if $?;
     }
     elsif (-x $cmdchk) {
-        my $out = qx($cmdchk --del $this->{name} 2>&1) || q{};
-        return $this->{err} = "Cannot remove init links for $this->{name}: $!\n\t$out" if $?;
+        my $out = qx($cmdchk --del $name 2>&1) || q{};
+        return $this->{err} = "Cannot remove init links for $name: $!\n\t$out" if $?;
     }
     else {
-        return $this->{err} = "Cannot remove init links for $this->{name}: no update-rc.d nor chkconfig";
+        return $this->{err} = "Cannot remove init links for $name: no update-rc.d nor chkconfig";
     }
 
     # Clear all
@@ -749,9 +800,24 @@ sub remove {
 }
 
 sub start {
+    my $this = shift;
+    return $this->{err} = "No init file" unless $this->{initfile};
+
+    # Run the init's own start command
+    my $out = qx($this->{initfile} start 2>&1);
+print "\nStart cmd='$this->{initfile} start'\nstat=$?\noutput:\n$out\n---\n";
+    $this->{running} = 1 if !$?;
+    return $this->{err} = q{};
 }
 
 sub stop {
+    my $this = shift;
+    return $this->{err} = "No init file" unless $this->{initfile};
+
+    # Run the init's own stop command
+    my $out = qx($this->{initfile} stop 2>&1);
+    $this->{running} = 0 if !$?;
+    return $this->{err} = q{};
 }
 
 1;
@@ -999,7 +1065,7 @@ Any unit files, job files, or init scripts will be deleted.
 If the service is running, it will be stopped first.
 If the service is enabled for boot, it will be disabled.
 
-To use this function, you must add() or load() it first.
+To use this function, either provide the name of the service, or you must add() or load() it first.
 
 
 =head1 AUTHOR
