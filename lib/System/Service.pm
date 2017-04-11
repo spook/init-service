@@ -681,6 +681,10 @@ sub load {
         $this->{prerun}  = $1 if $line =~ m{^\s*#\s*prerun:\s*(.+?)\s*$}i;
         $this->{run}     = $1 if $line =~ m{^\s*#\s*run:\s*(.+?)\s*$}i;
         $this->{postrun} = $1 if $line =~ m{^\s*#\s*postrun:\s*(.+?)\s*$}i;
+
+        # If we don't have the run command, look harder
+        $this->{run} = $1
+            if !$this->{run} && $line =~ m{start-stop-daemon\s*--start.+?--exec\s+(.+?)[\|\&\>\<]};
     }
     close UF;
 
@@ -1067,7 +1071,6 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 =cut
 
 To Do:
-* Make us run on Perl 5.8  -- DONE
 * Rename the whole thing to something better, perhaps:  InitSys::Service ?
 * sysVinit implementation
 * shutdown commands: stop, prestop, but no poststop

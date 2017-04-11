@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 use System::Service;
 
-plan tests => 83;
+plan tests => 84;
 
 # All these tests require root (TODO: or an alternate file system root)
 SKIP: {
@@ -15,9 +15,8 @@ SKIP: {
     # Add & remove
     diag "--- Create a dummy service ---";
     my $svc = System::Service->new();
-    BAIL_OUT "Cannot create service: " . $svc->error
-        if $svc->error;
     ok $svc, "Service object created";
+    is $svc->error, q{}, "  No error";
     my $svc_nam = "test-020";
     my $svc_pre = "/bin/true 1 2 3";
     my $svc_run = "/bin/sleep 5";
@@ -156,7 +155,7 @@ SKIP: {
     ok $svc, "Service object created for remove";
     $svc->remove($svc_nam);
     is $svc->error, q{}, "Remove status OK";
-    is $svc->name(),    q{}, "  Name ampty";
+    is $svc->name(),    q{}, "  Name empty";
     is $svc->prerun(),  q{}, "  PreRun empty";
     is $svc->run(),     q{}, "  Run empty";
     is $svc->postrun(), q{}, "  PostRun empty";
