@@ -1,6 +1,6 @@
 package System::Service;
 
-use 5.10.0; # for // operator and say() function
+use 5.10.0;    # for // operator and say() function
 use strict;
 use warnings;
 
@@ -13,6 +13,7 @@ use constant INIT_SYSTEMD => "systemd";
 use constant OK_TYPES     => qw/simple service forking notify oneshot task/;
 use constant OK_ARGS      => qw/
     root
+    initfile
     initsys
     name
     title
@@ -37,23 +38,22 @@ my %ALIAS_LIST = (    # Don't do 'use constant' for this
     "execstartpost" => "postrun",
 );
 
-# Not (yet) supported: reasearch-unix (old), procd, busybox-init, runi, ...
-
 sub new {
     my $proto = shift;
     my $class = ref($proto) || $proto;    # Get the class name
     my $this  = {
-        err     => q{},                   # Error status
-        root    => q{},                   # File-system root (blank = /)
-        initsys => q{},                   # Init system in use
-        name    => q{},                   # Service name
-        title   => q{},                   # Service description or title
-        type    => q{},                   # Service type normal, fork, ...
-        prerun  => q{},                   # pre-Command executable and arguments
-        run     => q{},                   # Command executable and arguments
-        postrun => q{},                   # post-Command executable and arguments
-        enabled => 0,                     # Will start on boot
-        started => 0,                     # Running now
+        err      => q{},                  # Error status
+        root     => q{},                  # File-system root (blank = /)
+        initfile => q{},                  # Init script or file
+        initsys  => q{},                  # Init system in use
+        name     => q{},                  # Service name
+        title    => q{},                  # Service description or title
+        type     => q{},                  # Service type normal, fork, ...
+        prerun   => q{},                  # pre-Command executable and arguments
+        run      => q{},                  # Command executable and arguments
+        postrun  => q{},                  # post-Command executable and arguments
+        enabled  => 0,                    # Will start on boot
+        started  => 0,                    # Running now
     };
     _process_args($this, @_);
     return $this->{err} if $this->{err};
@@ -145,22 +145,23 @@ sub _process_args {
 }
 
 # Accessors
-sub prerun  {return shift->{prerun};}
-sub run     {return shift->{run};}
-sub postrun {return shift->{postrun};}
-sub enabled {return shift->{enabled};}
-sub error   {return shift->{err};}
-sub initsys {return shift->{initsys};}
-sub name    {return shift->{name};}
-sub running {return shift->{running};}
-sub title   {return shift->{title};}
-sub type    {return shift->{type};}
+sub prerun   {return shift->{prerun};}
+sub run      {return shift->{run};}
+sub postrun  {return shift->{postrun};}
+sub enabled  {return shift->{enabled};}
+sub error    {return shift->{err};}
+sub initfile {return shift->{initfile};}
+sub initsys  {return shift->{initsys};}
+sub name     {return shift->{name};}
+sub running  {return shift->{running};}
+sub title    {return shift->{title};}
+sub type     {return shift->{type};}
 
 #       ------- o -------
 
 package System::Service::unknown;
 our $VERSION = $System::Service::VERSION;
-our @ISA = qw/System::Service/;
+our @ISA     = qw/System::Service/;
 
 # Return the error from the constructor
 sub add     {return shift->{err};}
@@ -175,7 +176,7 @@ sub stop    {return shift->{err};}
 
 package System::Service::systemd;
 our $VERSION = $System::Service::VERSION;
-our @ISA = qw/System::Service/;
+our @ISA     = qw/System::Service/;
 
 sub add {
     my $this = shift;
@@ -192,7 +193,7 @@ sub add {
         if !$name || !$run;
 
     # Create unit file
-    my $initfile = "$this->{root}/lib/systemd/system/$name.service";
+    my $initfile = $this->{initfile} = "$this->{root}/lib/systemd/system/$name.service";
     return $this->{err} = "Service already exists: $name"
         if -e $initfile && !$args{force};
 
@@ -223,11 +224,11 @@ sub add {
     $this->{postrun} = $post;
     $this->{running} = 0;
     $this->{enabled} = 0;
- 
+
     # Enabled or started on add?
     $this->{err} = q{};
     $this->enable() if $args{enabled};
-    $this->start()  if !$this->error && $args{started};
+    $this->start() if !$this->error && $args{started};
 
     return $this->{err};
 }
@@ -258,7 +259,7 @@ sub load {
     my $this = shift;
     my $name = shift;
 
-    my @lines = qx(systemctl show $name.service 2>&1);  # XXX Do instead? $this-{root}/bin/systemctl
+    my @lines = qx(systemctl show $name.service 2>&1);
     my %info = map {split(/=/, $_, 2)} @lines;
     return $this->{err} = "No such service $name"
         if !%info || $info{LoadState} !~ m/loaded/i;
@@ -276,6 +277,7 @@ sub load {
     $this->{type}    = $info{Type};
     $this->{running} = $info{SubState} =~ m/running/i ? 1 : 0;
     $this->{enabled} = $info{UnitFileState} =~ m/enabled/i ? 1 : 0;
+    $this->{initfile} = "$this->{root}/lib/systemd/system/$name.service";
 
     foreach my $k (qw/prerun run postrun title type/) {
         chomp $this->{$k};
@@ -304,6 +306,7 @@ sub remove {
     $this->{postrun} = q{};
     $this->{title}   = q{};
     $this->{type}    = q{};
+    $this->{initfile} = q{};
     $this->{running} = 0;
     $this->{enabled} = 0;
     return $this->{err} = q{};
@@ -335,7 +338,7 @@ sub stop {
 
 package System::Service::upstart;
 our $VERSION = $System::Service::VERSION;
-our @ISA = qw/System::Service/;
+our @ISA     = qw/System::Service/;
 
 sub add {
     my $this = shift;
@@ -352,7 +355,7 @@ sub add {
         if !$name || !$run;
 
     # Create conf file
-    my $initfile = "$this->{root}/etc/init/$name.conf";
+    my $initfile = $this->{initfile} = "$this->{root}/etc/init/$name.conf";
     return $this->{err} = "Service already exists: $name"
         if !$args{force} && -e $initfile;
     open(UF, '>', $initfile)
@@ -376,11 +379,11 @@ sub add {
     $this->{postrun} = $post;
     $this->{running} = 0;
     $this->{enabled} = 0;
- 
+
     # Enabled or started on add?
     $this->{err} = q{};
     $this->enable() if $args{enabled};
-    $this->start()  if !$this->error && $args{started};
+    $this->start() if !$this->error && $args{started};
 
     return $this->{err};
 }
@@ -404,7 +407,7 @@ sub _enadis {
 
     # Inhale the file line by line, removing any existing start on / stop on clauses
     my $contents = q{};
-    my $initfile = "$this->{root}/etc/init/$name.conf";
+    my $initfile = $this->{initfile};
     open(UF, '<', $initfile)
         or return $this->{err} = "Cannot open unit file $initfile: $!";
     while (my $line = <UF>) {
@@ -447,7 +450,7 @@ sub load {
     $this->{enabled} = 0;
 
     # Parse the init file
-    my $initfile = "$this->{root}/etc/init/$name.conf";
+    my $initfile = $this->{initfile} = "$this->{root}/etc/init/$name.conf";
     open(UF, '<', $initfile)
         or return $this->{err} = "No such service $name: cannot open $initfile: $!";
     while (my $line = <UF>) {
@@ -496,6 +499,7 @@ sub remove {
     $this->{type}    = q{};
     $this->{running} = 0;
     $this->{enabled} = 0;
+    $this->{initfile} = q{};
     return $this->{err} = q{};
 }
 
@@ -525,7 +529,7 @@ sub stop {
 
 package System::Service::SysV;
 our $VERSION = $System::Service::VERSION;
-our @ISA = qw/System::Service/;
+our @ISA     = qw/System::Service/;
 
 sub add {
     my $this = shift;
@@ -621,7 +625,7 @@ exit 0
 __EOSCRIPT__
 
     # Create the init file
-    my $initfile = "$this->{root}/etc/init.d/$name";
+    my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
     open(IF, '>', $initfile)
         or return $this->{err} = "Cannot create init file $initfile: $!";
     print IF $script;
@@ -636,11 +640,11 @@ __EOSCRIPT__
     $this->{postrun} = $post;
     $this->{running} = 0;
     $this->{enabled} = 0;
- 
+
     # Enabled or started on add?
     $this->{err} = q{};
     $this->enable() if $args{enabled};
-    $this->start()  if !$this->error && $args{started};
+    $this->start() if !$this->error && $args{started};
 
     return $this->{err};
 }
@@ -666,7 +670,7 @@ sub load {
     $this->{enabled} = 0;
 
     # Parse the init file
-    my $initfile = "$this->{root}/etc/init/$name.conf";
+    my $initfile = $this->{initfile} = "$this->{root}/etc/init/$name.conf";
     open(UF, '<', $initfile)
         or return $this->{err} = "No such service $name: cannot open $initfile: $!";
     while (my $line = <UF>) {
@@ -686,6 +690,7 @@ sub load {
     my $cmdurc = "$this->{root}/usr/sbin/update-rc.d";
     my $cmdchk = "$this->{root}/sbin/chkconfig";
     if (-x $cmdurc) {
+
         # We don't use the command here - but ensure it's there
         # Instead we look for start links at runlevels 2 3 4 5
         my @startlinks = glob("$this->{root}/etc/rc[2345].d/S[0-9][0-9]$name");
@@ -844,6 +849,11 @@ The normal way to use this is like:
 
     $svc->some_function(...);
     if ($svc->error) { ...handle error... }
+
+=head2 C<initfile>
+
+Returns the filename of the unit file, job file, or init script
+used to start the service.
 
 =head2 C<initsys>
 
