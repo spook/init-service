@@ -3,16 +3,16 @@ use 5.006;
 use strict;
 use warnings;
 use Test::More;
-use System::Service;
+use Init::Service;
 
 plan tests => 20;
 
 # Force the unknown init system
 diag "--- Test forced UNKNOWN init system ---";
-my $svc = System::Service->new(initsys => System::Service::INIT_UNKNOWN);
+my $svc = Init::Service->new(initsys => Init::Service::INIT_UNKNOWN);
 ok $svc, "Created object";
 like $svc->error, qr{unknown init system}i, "Unknown init is an error";
-is $svc->initsys, System::Service::INIT_UNKNOWN, "correct init system";
+is $svc->initsys, Init::Service::INIT_UNKNOWN, "correct init system";
 
 like $svc->load(), qr{unknown init system}i,
     "load()    returns error as it should";
@@ -32,23 +32,23 @@ like $svc->remove(), qr{unknown init system}i,
 # Try whatever the normal one is - non priv tests
 diag " ";
 diag "--- Test local system's init system ---";
-$svc = System::Service->new;
+$svc = Init::Service->new;
 ok $svc, "Created object";
 is $svc->error, q{}, "No errors when created";
-isnt $svc->initsys, System::Service::INIT_UNKNOWN,
+isnt $svc->initsys, Init::Service::INIT_UNKNOWN,
     "init system is known: " . $svc->initsys;
 
 # Try to load a service we (hope) does not exist
 diag " ";
 diag "--- Try to load() bogus service";
-$svc = System::Service->new;
+$svc = Init::Service->new;
 $svc->load("bogus-foobarbaz");
 like $svc->error, qr{No such service}i, "Returns correct error";
 
 # Load a known (hopefully) service - ssh
 diag " ";
 diag "--- Load a known service ---";
-$svc = System::Service->new;
+$svc = Init::Service->new;
 $svc->load("ssh");
 SKIP: {
     skip "ssh service not on this system", 6

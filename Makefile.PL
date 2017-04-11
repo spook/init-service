@@ -4,10 +4,10 @@ use warnings;
 use ExtUtils::MakeMaker;
 
 WriteMakefile(
-    NAME             => 'System::Service',
+    NAME             => 'Init::Service',
     AUTHOR           => q{Uncle Spook <spook@MisfitMountain.org>},
-    VERSION_FROM     => 'lib/System/Service.pm',
-    ABSTRACT_FROM    => 'lib/System/Service.pm',
+    VERSION_FROM     => 'lib/Init/Service.pm',
+    ABSTRACT_FROM    => 'lib/Init/Service.pm',
     LICENSE          => 'MIT',
     PL_FILES         => {},
     MIN_PERL_VERSION => '5.006',
@@ -22,5 +22,5 @@ WriteMakefile(
         #'Foo::Bar::Module' => '5.0401',
     },
     dist  => { COMPRESS => 'gzip -9f', SUFFIX => 'gz', },
-    clean => { FILES => 'System-Service-*' },
+    clean => { FILES => 'Init-Service-*' },
 );

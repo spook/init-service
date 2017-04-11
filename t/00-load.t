@@ -7,7 +7,7 @@ use Test::More;
 plan tests => 1;
 
 BEGIN {
-    use_ok('System::Service') || print "Bail out!\n";
+    use_ok('Init::Service') || print "Bail out!\n";
 }
 
-diag("Testing System::Service $System::Service::VERSION, Perl $], $^X");
+diag("Testing Init::Service $Init::Service::VERSION, Perl $], $^X");

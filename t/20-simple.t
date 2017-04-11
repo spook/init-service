@@ -3,7 +3,7 @@ use 5.006;
 use strict;
 use warnings;
 use Test::More;
-use System::Service;
+use Init::Service;
 
 plan tests => 85;
 
@@ -19,7 +19,7 @@ SKIP: {
     my $svc_exe = "/tmp/$svc_nam.sh";
     my $svc_run = "$svc_exe a b c";
     my $svc_pos = "/bin/true 99";
-    my $svc_tit = "Test service for System::Service test #020";
+    my $svc_tit = "Test service for Init::Service test #020";
     my $svc_typ = "simple";
     open D, ">", $svc_exe
         or die "*** Cannot create daemon script $svc_exe: $!";
@@ -38,7 +38,7 @@ SKIP: {
     # Add & remove
     diag " ";
     diag "--- new() the dummy service ---";
-    my $svc = System::Service->new();
+    my $svc = Init::Service->new();
     ok $svc, "Service object created";
     is $svc->error, q{}, "  No error";
     $svc->add(
@@ -60,7 +60,7 @@ SKIP: {
     ok !$svc->enabled(), "  Not enabled for boot";
 
     # Load it back as a new object
-    $svc = System::Service->new();    # make new object
+    $svc = Init::Service->new();    # make new object
     ok $svc, "Service object created for load";
     $svc->load($svc_nam);
     is $svc->error, q{}, "load() status";
@@ -82,7 +82,7 @@ SKIP: {
     ok $svc->enabled(),  "  Is enabled for boot";
 
     # Reload, check if enabled
-    $svc = System::Service->new();    # make new object
+    $svc = Init::Service->new();    # make new object
     ok $svc, "New object to check above";
     $svc->load($svc_nam);
     is $svc->error, q{}, "re-load() status";
@@ -104,7 +104,7 @@ SKIP: {
     ok !$svc->enabled(), "  Not enabled for boot";
 
     # Reload, check if disabled
-    $svc = System::Service->new();    # make new object
+    $svc = Init::Service->new();    # make new object
     ok $svc, "New object to check above";
     $svc->load($svc_nam);
     is $svc->error, q{}, "re-load() status";
@@ -126,7 +126,7 @@ SKIP: {
     ok !$svc->enabled(), "  Not enabled for boot";
 
     # Reload, check if running
-    $svc = System::Service->new();    # make new object
+    $svc = Init::Service->new();    # make new object
     ok $svc, "New object to check above";
     $svc->load($svc_nam);
     is $svc->error, q{}, "re-load() status";
@@ -154,7 +154,7 @@ SKIP: {
     ok !$svc->enabled(), "  Not enabled for boot";
 
     # Reload, check if stopped
-    $svc = System::Service->new();    # make new object
+    $svc = Init::Service->new();    # make new object
     ok $svc, "New object to check above";
     $svc->load($svc_nam);
     is $svc->error, q{}, "re-load() status";
@@ -170,7 +170,7 @@ SKIP: {
     # Remove it
     diag "";
     diag "--- Remove the dummy service ---";
-    $svc = System::Service->new();    # make new object
+    $svc = Init::Service->new();    # make new object
     ok $svc, "Service object created for remove";
     $svc->remove($svc_nam);
     is $svc->error, q{}, "remove() status";
