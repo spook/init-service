@@ -10,7 +10,12 @@ use constant INIT_UNKNOWN => "unknown";
 use constant INIT_SYSTEMV => "SysVinit";
 use constant INIT_UPSTART => "upstart";
 use constant INIT_SYSTEMD => "systemd";
-use constant OK_TYPES     => qw/simple service forking notify oneshot task/;
+use constant OK_TYPES     => qw/
+    simple service
+    forking
+    notify
+    oneshot task
+    /;
 use constant OK_ARGS      => qw/
     root
     initfile
@@ -538,15 +543,18 @@ sub add {
     my %args = ();
     System::Service::_process_args(\%args, @_);
     return $this->{err} = $args{err} if $args{err};
+    my $root  = $args{root}  || $this->{root};
     my $name  = $args{name};
     my $title = $args{title} || q{};
-    my $type  = $args{type} || "simple";
+    my $type  = $args{type}  || "simple";
     my $pre   = $args{prerun};
     my $run   = $args{run};
     my $post  = $args{postrun};
     return $this->{err} = "Insufficient arguments; name and run required"
         if !$name || !$run;
     my ($daemon, $opts) = $run =~ m/^\s*(\S+)\s+(.+)$/;
+
+    my $bgflag = ($type eq "simple") || ($type eq "notify") ? "--background" : q{};
 
     # Form the script
     my $script = <<"__EOSCRIPT__";
@@ -573,12 +581,12 @@ sub add {
 set -e
 umask 022
 . /lib/lsb/init-functions
-export PATH=/sbin:/bin:/usr/sbin:/usr/bin
+export PATH=$root/sbin:$root/bin:$root/usr/sbin:$root/usr/bin
 
 case "\$1" in
   start)
 	log_daemon_msg "Starting $title" "$name" || true
-	if start-stop-daemon --start --quiet --oknodo --pidfile /var/run/$name.pid --exec $daemon -- $opts; then
+	if start-stop-daemon --start --quiet --oknodo --pidfile $root/var/run/$name.pid $bgflag --exec $daemon -- $opts; then
 	    log_end_msg 0 || true
 	else
 	    log_end_msg 1 || true
@@ -586,7 +594,7 @@ case "\$1" in
 	;;
   stop)
 	log_daemon_msg "Stopping $title" "$name" || true
-	if start-stop-daemon --stop --quiet --oknodo --pidfile /var/run/$name.pid; then
+	if start-stop-daemon --stop --quiet --oknodo --pidfile $root/var/run/$name.pid; then
 	    log_end_msg 0 || true
 	else
 	    log_end_msg 1 || true
@@ -595,7 +603,7 @@ case "\$1" in
 
   reload|force-reload)
 	log_daemon_msg "Reloading $title" "$name" || true
-	if start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile /var/run/$name.pid --exec $daemon; then
+	if start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile $root/var/run/$name.pid --exec $daemon; then
 	    log_end_msg 0 || true
 	else
 	    log_end_msg 1 || true
@@ -604,10 +612,10 @@ case "\$1" in
 
   restart)
 	log_daemon_msg "Restarting $title" "$name" || true
-	start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile /var/run/$name.pid
+	start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile $root/var/run/$name.pid
 	check_for_no_start log_end_msg
 	check_dev_null log_end_msg
-	if start-stop-daemon --start --quiet --oknodo --pidfile /var/run/$name.pid --exec $daemon -- $opts; then
+	if start-stop-daemon --start --quiet --oknodo --pidfile $root/var/run/$name.pid $bgflag --exec $daemon -- $opts; then
 	    log_end_msg 0 || true
 	else
 	    log_end_msg 1 || true
@@ -615,11 +623,15 @@ case "\$1" in
 	;;
 
   status)
-	status_of_proc -p /var/run/$name.pid $daemon $name && exit 0 || exit \$?
+    echo PID file = $root/var/run/$name.pid
+    echo contents:
+    cat $root/var/run/$name.pid
+    echo '---'
+	status_of_proc -p $root/var/run/$name.pid $daemon $name && exit 0 || exit \$?
 	;;
 
   *)
-	log_action_msg "Usage: /etc/init.d/$name {start|stop|reload|force-reload|restart|status}" || true
+	log_action_msg "Usage: $root/etc/init.d/$name {start|stop|reload|force-reload|restart|status}" || true
 	exit 1
 esac
 
@@ -627,7 +639,7 @@ exit 0
 __EOSCRIPT__
 
     # Create the init file
-    my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
+    my $initfile = $this->{initfile} = "$root/etc/init.d/$name";
     open(IF, '>', $initfile)
         or return $this->{err} = "Cannot create init file $initfile: $!";
     print IF $script;
@@ -805,7 +817,6 @@ sub start {
 
     # Run the init's own start command
     my $out = qx($this->{initfile} start 2>&1);
-print "\nStart cmd='$this->{initfile} start'\nstat=$?\noutput:\n$out\n---\n";
     $this->{running} = 1 if !$?;
     return $this->{err} = q{};
 }
@@ -1137,6 +1148,8 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 =cut
 
 To Do:
+* sysv: handle type, using -b to start-stop-daemon as appropriate
+* chmod/chown initfiles
 * Rename the whole thing to something better, perhaps:  InitSys::Service ?
 * sysVinit implementation
 * shutdown commands: stop, prestop, but no poststop

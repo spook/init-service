@@ -5,24 +5,42 @@ use warnings;
 use Test::More;
 use System::Service;
 
-plan tests => 84;
+plan tests => 85;
 
 # All these tests require root (TODO: or an alternate file system root)
 SKIP: {
-    skip "*** These tests must be run as root", 83
+    skip "*** These tests must be run as root", 85
         if $>;
 
-    # Add & remove
-    diag "--- Create a dummy service ---";
-    my $svc = System::Service->new();
-    ok $svc, "Service object created";
-    is $svc->error, q{}, "  No error";
+    # Make the daemon script
+    diag "--- Create a dummy daemon ---";
     my $svc_nam = "test-020";
     my $svc_pre = "/bin/true 1 2 3";
-    my $svc_run = "/bin/sleep 5";
+    my $svc_exe = "/tmp/$svc_nam.sh";
+    my $svc_run = "$svc_exe a b c";
     my $svc_pos = "/bin/true 99";
     my $svc_tit = "Test service for System::Service test #020";
     my $svc_typ = "simple";
+    open D, ">", $svc_exe
+        or die "*** Cannot create daemon script $svc_exe: $!";
+    print D "#!/bin/sh\n";
+    print D "echo \$\$ > /var/run/$svc_nam.pid\n";
+    print D "sleep 1\n";
+    print D "echo Got \$*\n";
+    print D "sleep 5\n";
+    print D "rm /var/run/$svc_nam.pid\n";
+    print D "exit 0\n";
+    close D;
+    chmod 775, $svc_exe
+        or die "*** Cannot chmod() daemon script $svc_exe: $!";
+    ok 1, "Dummy daemon script created";
+
+    # Add & remove
+    diag " ";
+    diag "--- new() the dummy service ---";
+    my $svc = System::Service->new();
+    ok $svc, "Service object created";
+    is $svc->error, q{}, "  No error";
     $svc->add(
         name    => $svc_nam,
         type    => $svc_typ,
@@ -165,6 +183,8 @@ SKIP: {
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled";
 
+    # Remove dummy daemon
+    unlink $svc_exe;
 }
 
 exit 0;
