@@ -39,8 +39,8 @@ Usage: init-service FUNCTION SVCNAME [options...]
     add     - Create (define) the service on the system
     remove  - Makes service unknown to the system; will stop and disable first
     status  - Displays the status of the service
-    is-started - Check if the service is running now (use in scripts)
-    is-enabled - Check if the service is enabled to start at boot (use in scripts)
+    is-running - Check if running now (use in scripts)
+    is-enabled - Check if enabled at boot (use in scripts)
 
   General Options:
     -h --help     Show this usage help
