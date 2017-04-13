@@ -1,27 +1,47 @@
 #!/usr/bin/perl -w
 use strict;
 use warnings;
+use Getopt::Long;
+use Init::Service;
 
 # dispatch
-usage("*** Missing function", 1) unless @ARGV >= 2;
 my $func = lc $ARGV[0];
-my $svc = $ARGV[1];
-$func eq 'start'         ? do_start($svc)
-    : $func eq 'stop'    ? do_stop($svc)
-#    : $func eq 'restart' ? do_restart($svc)
-#    : $func eq 'reload'  ? do_reload($svc)
-    : $func eq 'status'  ? do_status($svc)
-    : $func eq 'enable'  ? do_enable($svc)
-    : $func eq 'disable' ? do_disable($svc)
-    : $func eq 'add'     ? do_install($svc)
-    : $func eq 'remove'  ? do_remove($svc)
-    :                     usage("*** Unknown function '$func'", 1);
+my $name = $ARGV[1];
+my $opts = {};
+Getopt::Long::Configure("bundling");
+GetOptions($opts,
+            "help|h",
+            "verbose|v",
+            "type|t=s",
+            "title|d=s",
+            "run|r=s",
+            "prerun|p=s",
+            "postrun|o=s",
+            "enable|e",
+            "start|s",
+            ) or usage("*** Command options error", 1);
+usage(q{}, 0) if $opts->{help};
+usage("*** Missing function and service name", 1) unless @ARGV >= 2;
+usage("*** Extraneous parameters", 1) unless @ARGV == 2;
+
+# Dispatch
+my $svc = new Init::Service();
+$func eq 'add'     ? do_add($svc, $name, $opts)    :
+$func eq 'disable' ? $svc->disable($name)          :
+$func eq 'enable'  ? $svc->enable($name)           :
+$func eq 'remove'  ? $svc->remove($name)           :
+$func eq 'start'   ? $svc->start($name)            :
+$func eq 'status'  ? do_status($svc, $name, $opts) :
+$func eq 'stop'    ? $svc->stop($name)             :
+usage("*** Unknown function '$func'", 1);
+die "*** " . $svc->error . "\n" if $svc->error;
+print "Done\n" if $opts->{verbose} && ($func ne "status");
 exit 0;
 
 #                           ------- o -------
 
 sub usage {
-    print q{Usage: init-service FUNCTION SVCNAME [options...]
+    print STDERR q{Usage: init-service FUNCTION SVCNAME [options...]
 
   Functions:
     start   - Runs the service; if already running, an error is emitted
@@ -31,7 +51,7 @@ sub usage {
     enable  - Mark a service start at boot; does not affect current state
     disable - Make service not start at boot; does not affect current state
     add     - Create (define) the service on the system
-    remove  - Makes the service unknown to the system; will do a stop and disable first
+    remove  - Makes service unknown to the system; will stop and disable first
     status  - Displays the status of the service
     is-started - Check if the service is running now
     is-enabled - Check if the service is enabled to start at boot
@@ -41,62 +61,56 @@ sub usage {
     -v --verbose  Show more output
 
   Options for 'add' function:
-    -t --type TYPE    Type of service, one of: simple forking notify oneshot
     -r --run CMD      Command and args to run the service
-    -p --prerun CMD   Optional command and args to run before starting the service
-    -o --postrun CMD  Optional command and args to run before starting the service
+    -t --type TYPE    Type of service, one of: simple forking notify oneshot
+    -d --title DSC    Short description of the service
+    -p --prerun CMD   Command and args to run before starting the service
+    -o --postrun CMD  Command and args to run after starting the service
     -e --enable       Enable the service so it starts at boot
     -s --start        Start the service now, after adding it
 };
-    print shift . "\n" if @_;
+    print STDERR shift . "\n" if @_;
     exit(shift || 0);
 }
 
-sub must_be_root {
-    die "*** Must be root\n" if $>;
-}
-
-sub do_start {
-    must_be_root();
-}
-
-sub do_stop {
-    must_be_root();
-}
-
-sub do_restart {
-    must_be_root();
-}
-
-sub do_reload {
-    must_be_root();
+sub do_add {
+    my $svc  = shift;
+    my $name = shift;
+    my $opts = shift;
+    die "*** 'run' missing\n" unless $opts->{run};
+    $svc->add(-name    => $name,
+              -title   => $opts->{title}    || q{},
+              -type    => $opts->{type}     || "simple",
+              -prerun  => $opts->{prerun}   || q{},
+              -run     => $opts->{run},
+              -postrun => $opts->{prostrun} || q{},
+              -enable  => $opts->{enable}   || 0,
+              -start   => $opts->{start}    || 0,
+             );
 }
 
 sub do_status {
+    my $svc  = shift;
+    my $name = shift;
+    my $opts = shift;
+    $svc->load(-name => $name);
+    die "*** " . $svc->error . "\n" if $svc->error;
+    print "Service:  " . $svc->name . "\n";
+    print "Running:  " . ($svc->running ? "Yes\n" : "No\n");
+    print "Enabled:  " . ($svc->enabled ? "Yes\n" : "No\n");
+    return unless $opts->{verbose};
+    print "Type:     " . $svc->type . "\n";
+    print "Title:    " . $svc->title . "\n";
+    print "Pre-run:  " . $svc->prerun() . "\n";
+    print "Run:      " . $svc->run() . "\n";
+    print "Post-run: " . $svc->postrun() . "\n";
 }
-
-sub do_enable {
-    must_be_root();
-}
-
-sub do_disable {
-    must_be_root();
-}
-
-sub do_install {
-    must_be_root();
-}
-
-sub do_remove {
-    must_be_root();
-}
-
 
 __END__
 
 =head1 NAME
 
-init-service - add, remove, enable, disable, start, stop, and system services
+init-service - add, remove, enable, disable, start, stop, and show services
 
 =head1 VERSION
 

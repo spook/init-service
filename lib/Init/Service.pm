@@ -135,7 +135,7 @@ sub new {
 #       to (possibly) cleanup the value and validate it's ok.
 #   If an option name is a key in $this, then $this is updated.
 #   All cleaned-up options are returned as a hash; typically assign this to %opts.
-#   If @_ contains only one element, it is presumed to be the value for the first validopt.
+#   If @_ contains only one element, it is presumed to be the value for the DEFAULT validopt.
 #   Error status is set in $this->{err}.
 sub _ckopts {
     my $this = shift;
@@ -299,6 +299,11 @@ sub add {
     chmod 0644, $initfile
         or return $this->{err} = "Cannot chmod 644 file $initfile: $!";
 
+    # Daemon reload
+    my $out = qx(systemctl daemon-reload 2>&1);
+    return $this->{err} = "Error on daemon-reload: $!\n\t$out"
+        if $?;
+
     # Enabled or started on add?
     $this->{err}     = ERR_OK;
     $this->{running} = 0;
@@ -344,8 +349,10 @@ sub load {
 
     my @lines = qx(systemctl show $name.service 2>&1);
     my %info = map {split(/=/, $_, 2)} @lines;
-    return $this->{err} = "No such service $name"
-        if !%info || ($info{LoadState} !~ m/loaded/i);
+    my $loadstate = $info{LoadState} || "unknown";
+    chomp $loadstate;
+    return $this->{err} = "No such service $name (LoadState=$loadstate)"
+        if $loadstate !~ m/loaded/i;
     my $pre = $info{ExecStartPre} || q{};
     $pre = $1 if $pre =~ m{argv\[]=(.+?)\s*\;};
     my $run = $info{ExecStart} || q{};
