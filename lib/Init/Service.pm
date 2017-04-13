@@ -107,7 +107,7 @@ sub new {
     bless $this, $class;                  # May be re-blessed later
     my %opts = _ckopts($this, OPTS_NEW(), @_);
     return $this if $this->{err};
-    $this->{initsys} = $opts{useinit} || $this->deduce_initsys();
+    $this->{initsys} = $opts{useinit} || $this->_deduce_initsys();
     $this->{err} = "Unknown init system" if $this->{initsys} eq INIT_UNKNOWN;
 
     $class .= "::" . $this->{initsys};
@@ -168,7 +168,7 @@ sub _ckopts {
     return %opts;
 }
 
-sub deduce_initsys {
+sub _deduce_initsys {
     my $this = shift;
 
     # Look for systemd
@@ -201,13 +201,6 @@ sub _ok_initsys {
     $$vp = INIT_SYSTEMV if lc($$vp) eq "sysvinit";
     $$vp = INIT_UPSTART if lc($$vp) eq "upstart";
     $$vp = INIT_SYSTEMD if lc($$vp) eq "systemd";
-    return ERR_OK;
-}
-
-sub _ok_lctrim {
-    my $vp = shift;
-    $$vp =~ s{^\s*(.+?)\s*}{$1};    # trim
-    $$vp = lc $$vp;
     return ERR_OK;
 }
 
@@ -244,9 +237,8 @@ sub initsys  {return shift->{initsys};}
 sub name     {return shift->{name};}
 sub title    {return shift->{title};}
 sub type     {return shift->{type};}
-
-sub enabled {return shift->{on_boot};}
-sub running {return shift->{running};}
+sub enabled  {return shift->{on_boot};}
+sub running  {return shift->{running};}
 
 #       ------- o -------
 
@@ -268,7 +260,7 @@ sub stop    {return shift->{err};}
 package Init::Service::systemd;
 our $VERSION = $Init::Service::VERSION;
 our @ISA     = qw/Init::Service/;
-use constant ERR_OK => q{};
+use constant ERR_OK => Init::Service::ERR_OK;
 
 sub add {
     my $this = shift;
@@ -287,7 +279,6 @@ sub add {
     my $initfile = $this->{initfile} = "$this->{root}/lib/systemd/system/$name.service";
     return $this->{err} = "Service exists: $name"
         if -e $initfile && !$opts{force};
-
     open(UF, '>', $initfile)
         or return $this->{err} = "Cannot create init file $initfile: $!";
     print UF "[Unit]\n";
@@ -308,12 +299,10 @@ sub add {
     chmod 0644, $initfile
         or return $this->{err} = "Cannot chmod 644 file $initfile: $!";
 
-    # Set attributes
+    # Enabled or started on add?
     $this->{err}     = ERR_OK;
     $this->{running} = 0;
     $this->{on_boot} = 0;
-
-    # Enabled or started on add?
     $this->enable() if !$this->error && $opts{name} && $opts{enable};
     $this->start()  if !$this->error && $opts{name} && $opts{start};
 
@@ -325,9 +314,11 @@ sub disable {
     my %opts = $this->_ckopts(Init::Service::OPTS_DIS(), @_);
     return $this->{err} if $this->{err};
     return $this->{err} = "Missing service name" unless $this->{name};
+
     my $out = qx(systemctl disable $this->{name}.service 2>&1);
     return $this->{err} = "Cannot disable $this->{name}: $!\n\t$out"
         if $?;
+
     $this->{on_boot} = 0;
     return $this->{err} = ERR_OK;
 }
@@ -395,6 +386,8 @@ sub remove {
         if !-e $initfile && !$opts{force};
     my $n = unlink $initfile;
     return $this->{err} = "Cannot remove service $name: $!" unless $n;
+
+    # Clear all
     $this->{name}     = q{};
     $this->{prerun}   = q{};
     $this->{run}      = q{};
@@ -404,7 +397,7 @@ sub remove {
     $this->{initfile} = q{};
     $this->{running}  = 0;
     $this->{on_boot}  = 0;
-    return $this->{err} = q{};
+    return $this->{err} = ERR_OK;
 }
 
 sub start {
@@ -418,7 +411,7 @@ sub start {
     return $this->{err} = "Cannot start $name: $!\n\t$out"
         if $?;
     $this->{running} = 1;
-    return $this->{err} = q{};
+    return $this->{err} = ERR_OK;
 }
 
 sub stop {
@@ -428,8 +421,8 @@ sub stop {
     return $this->{err} = "Missing service name" unless $this->{name};
     my $name = $this->{name};
 
-    my $out = qx(systemctl stop $this->{name}.service 2>&1);
-    return $this->{err} = "Cannot stop $this->{name}: $!\n\t$out"
+    my $out = qx(systemctl stop $name.service 2>&1);
+    return $this->{err} = "Cannot stop $name: $!\n\t$out"
         if $?;
     $this->{running} = 0;
     return $this->{err} = q{};
@@ -440,25 +433,25 @@ sub stop {
 package Init::Service::upstart;
 our $VERSION = $Init::Service::VERSION;
 our @ISA     = qw/Init::Service/;
+use constant ERR_OK => Init::Service::ERR_OK;
 
 sub add {
     my $this = shift;
-    my %args = ();
-    Init::Service::_process_args(\%args, @_);
-    return $this->{err} = $args{err} if $args{err};
-    my $name  = $args{name};
-    my $title = $args{title} || q{};
-    my $type  = $args{type} || "simple";
-    my $pre   = $args{prerun};
-    my $run   = $args{run};
-    my $post  = $args{postrun};
-    return $this->{err} = "Insufficient arguments; name and run required"
+    my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
+    return $this->{err} if $this->{err};
+    my $name  = $this->{name};
+    my $title = $this->{title};
+    my $type  = $this->{type} || "simple";
+    my $pre   = $this->{prerun};
+    my $run   = $this->{run};
+    my $post  = $this->{postrun};
+    return $this->{err} = "Missing options; name and run required"
         if !$name || !$run;
 
     # Create conf file
     my $initfile = $this->{initfile} = "$this->{root}/etc/init/$name.conf";
-    return $this->{err} = "Service already exists: $name"
-        if !$args{force} && -e $initfile;
+    return $this->{err} = "Service exists: $name"
+        if -e $initfile && !$opts{force};
     open(UF, '>', $initfile)
         or return $this->{err} = "Cannot create init file $initfile: $!";
     print UF "# upstart init script for the $name service\n";
@@ -473,44 +466,46 @@ sub add {
     chmod 0644, $initfile
         or return $this->{err} = "Cannot chmod 644 file $initfile: $!";
 
-    # Copy attributes into ourselves
-    $this->{name}    = $name;
-    $this->{title}   = $title;
-    $this->{type}    = $type;
-    $this->{prerun}  = $pre;
-    $this->{run}     = $run;
-    $this->{postrun} = $post;
     $this->{running} = 0;
     $this->{on_boot} = 0;
 
     # Enabled or started on add?
-    $this->{err} = q{};
-    $this->enable() if $args{enabled};
-    $this->start() if !$this->error && $args{started};
+    $this->{err}     = ERR_OK;
+    $this->{running} = 0;
+    $this->{on_boot} = 0;
+    $this->enable() if !$this->error && $opts{name} && $opts{enable};
+    $this->start()  if !$this->error && $opts{name} && $opts{start};
 
     return $this->{err};
 }
 
 sub disable {
     my $this = shift;
-    $this->{on_boot} = 0;
-    return $this->_enadis();
+    my %opts = $this->_ckopts(Init::Service::OPTS_DIS(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+
+    return $this->_enadis(0);
 }
 
 sub enable {
     my $this = shift;
-    $this->{on_boot} = 1;
-    return $this->_enadis();
+    my %opts = $this->_ckopts(Init::Service::OPTS_ENA(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+
+    return $this->_enadis(1);
 }
 
-# Helper function - Enable or disable based on $this->{enabled} setting
+# Helper function - Enable or disable
 sub _enadis {
     my $this = shift;
+    my $enable = shift;
     my $name = $this->{name};
 
     # Inhale the file line by line, removing any existing start on / stop on clauses
     my $contents = q{};
-    my $initfile = $this->{initfile};
+    my $initfile = $this->{initfile} || "$this->{root}/etc/init/$name.conf";
     open(UF, '<', $initfile)
         or return $this->{err} = "Cannot open unit file $initfile: $!";
     while (my $line = <UF>) {
@@ -521,7 +516,7 @@ sub _enadis {
     close UF;
 
     # If we want to be enabled, add those clauses
-    if ($this->{enabled}) {
+    if ($enable) {
         $contents .= "\n";
         $contents .= "start on runlevel [2345]\n";     # TODO map this somehow
         $contents .= "stop  on runlevel [!2345]\n";    # TODO map this somehow
@@ -535,14 +530,18 @@ sub _enadis {
     rename "$initfile-new", $initfile
         or return $this->{err} = "Cannot move new unit file $initfile-new into place: $!";
 
-    return $this->{err} = q{};
+    $this->{on_boot} = $enable;
+    return $this->{err} = ERR_OK;
 }
 
 sub load {
     my $this = shift;
-    my $name = shift;
+    my %opts = $this->_ckopts(Init::Service::OPTS_LOAD(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+    my $name = $this->{name};
 
-    # Clear everything
+    # Clear everything first
     $this->{name}    = $name;
     $this->{title}   = q{};
     $this->{type}    = 'simple';
@@ -570,28 +569,32 @@ sub load {
     # then also run `service $name status` to read current state
     # ex output:
     #   ssh start/running, process 12345
-    #   xxx: unrecognized service
+    #       -or-
+    #   ssh: unrecognized service
     # The format of the output can be summarized as follows:
     # <job> [ (<instance>)]<goal>/<status>[, process <PID>]
     #        [<section> process <PID>]
     my $out = qx($this->{root}/sbin/initctl status $name 2>&1);
     $this->{running} = 1 if !$? && $out =~ m{\b/running\b}i;
+
+    return $this->{err} = ERR_OK;
 }
 
 sub remove {
     my $this = shift;
-    my $name = shift || $this->{name};
-    my %args;
-    Init::Service::_process_args(\%args, @_);
+    my %opts = $this->_ckopts(Init::Service::OPTS_REM(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+    my $name = $this->{name};
 
     # If we're removing it, we must first insure its stopped and disabled
-    $this->stop($name);    #ignore errors except...? XXX
-    $this->disable($name);
+    $this->stop();    #ignore errors except...? XXX
+    $this->disable();
 
     # Now remove the conf file
     my $initfile = "$this->{root}/etc/init/$name.conf";    # TODO; use the stored name
-    return $this->{err} = "Service does not exist: $name"
-        if !-e $initfile && !$args{force};
+    return $this->{err} = "No such service $name"
+        if !-e $initfile && !$opts{force};
     my $n = unlink $initfile;
     return $this->{err} = "Cannot remove service $name: $!" unless $n;
 
@@ -602,29 +605,35 @@ sub remove {
     $this->{postrun}  = q{};
     $this->{title}    = q{};
     $this->{type}     = q{};
+    $this->{initfile} = q{};
     $this->{running}  = 0;
     $this->{on_boot}  = 0;
-    $this->{initfile} = q{};
-    return $this->{err} = q{};
+    return $this->{err} = ERR_OK;
 }
 
 sub start {
     my $this = shift;
-    return $this->{err} = "First load or add a service"
-        unless $this->{name};
+    my %opts = $this->_ckopts(Init::Service::OPTS_START(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+    my $name = $this->{name};
+
     my $out = qx(service $this->{name} start 2>&1);
-    return $this->{err} = "Cannot start $this->{name}: $!\n\t$out"
+    return $this->{err} = "Cannot start $name: $!\n\t$out"
         if $?;
     $this->{running} = 1;
-    return $this->{err} = q{};
+    return $this->{err} = ERR_OK;
 }
 
 sub stop {
     my $this = shift;
-    return $this->{err} = "First load or add a service"
-        unless $this->{name};
-    my $out = qx(service $this->{name} stop 2>&1);
-    return $this->{err} = "Cannot start $this->{name}: $!\n\t$out"
+    my %opts = $this->_ckopts(Init::Service::OPTS_STOP(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+    my $name = $this->{name};
+
+    my $out = qx(service $name stop 2>&1);
+    return $this->{err} = "Cannot stop $name: $!\n\t$out"
         if $?;
     $this->{running} = 0;
     return $this->{err} = q{};
@@ -988,7 +997,7 @@ each of the corresponding init system's equivalent functionality.
     $err = $svc->stop();
     $err = $svc->disable();
     $err = $svc->remove();
-    
+
     ...
 
 =head1 SUBROUTINES/METHODS
@@ -996,8 +1005,8 @@ each of the corresponding init system's equivalent functionality.
 =head2 C<new>
 
 Constructor.
-With no arguments, it determines the type of init system in use, and creates an empty service 
-object, which can later be add()'d or load()'d.  
+With no arguments, it determines the type of init system in use, and creates an empty service
+object, which can later be add()'d or load()'d.
 
     my $svc = new Init::Service();
     if ($svc->error) { ... }
@@ -1017,13 +1026,6 @@ When called with I<name> but NOT I<run>, it will attempt to load() an existing s
 Takes the same arguments as I<add()>.
 Remember to check the object for an error after creating it.
 
-=head2 C<deduce_initsys>
-
-This is an internal function called by new().
-
-It examines the system and determines what init system is in use.
-To find out what init system is in use, call C<initsys()>.
-
 =head2 C<prerun>
 
 Returns the pre-run command(s) defined for the service.
@@ -1040,7 +1042,7 @@ For upstart, this is I<exec>.
 For SysVinit, these are the main commands within the /etc/init.d script.
 Multiple commands may exist; call this in list context to get them all.
 
-Note - this does not 'run' the service now; it's just an accessor to 
+Note - this does not 'run' the service now; it's just an accessor to
 return what's defined to be run.  To start the service now, use C<start()>.
 
 =head2 C<postrun>
@@ -1141,7 +1143,7 @@ You must provide at least the I<name> and I<run> arguments to add a new service.
     }
 
 The service name must be a simple identifier, consisting only of alphanumeric characters,
-dash "-", dot ".", underscore "_", colon ":", or the at-sign "@".  
+dash "-", dot ".", underscore "_", colon ":", or the at-sign "@".
 The maximum length is 64 characters.
 
 The prerun, run, and postrun commands must use absolute paths to the executable.
@@ -1234,26 +1236,25 @@ This program is released under the following license: MIT
 Copyright 2017 Uncle Spook.
 See https://github.com/spook/service
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and 
-associated documentation files (the "Software"), to deal in the Software without restriction, 
-including without limitation the rights to use, copy, modify, merge, publish, distribute, 
-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is 
+Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
+associated documentation files (the "Software"), to deal in the Software without restriction,
+including without limitation the rights to use, copy, modify, merge, publish, distribute,
+sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
 furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or 
+The above copyright notice and this permission notice shall be included in all copies or
 substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT 
-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND 
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, 
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
+NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
+DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
 OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 =cut
 
 To Do / TODO:
-* Getters into both getters & setters
-* Allow dashes in front of options, is -name => "blah"
+* Getters into both getters & setters  .. maybe
 * Add dump() diagnostic function (or is the ini-service command enuf for this?)
 * shutdown commands: stop, prestop, but no poststop
 * commands can be list ref's
@@ -1279,6 +1280,3 @@ http://upstart.ubuntu.com/cookbook
 * Details on what systemd does when there are also SysV init.d scripts in place:
 http://unix.stackexchange.com/questions/233468/how-does-systemd-use-etc-init-d-scripts
 The answer by JdeBP seems most correct.  He also provides good furthur reading.
-
-
-
