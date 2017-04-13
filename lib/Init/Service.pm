@@ -1261,13 +1261,38 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 =cut
 
 To Do / TODO:
+* shutdown commands: stop, prestop, but no poststop
+* PIDfile option
+* allow to specify user & group for service
+    systemd: 
+    upstart: setuid setgid  (upstart 1.4 +)
+* StandardOutput option or where to write stdout/stderr
+* ExecReload or related reload option
+    systemd: 
+    upstart: reload signal
+    sysvinit: write command into script
+* Option to specify additional initfile values, per init-type: --extra-upstart, --extra-systemd, ...
+
+* Watchdog capability
+    Use some simple values, like "urgently", "typical", "patient" and map to a set of values.
+    systemd:
+        Restart=on-failure
+        RestartSec=3s  (default is 100ms)
+        StartLimitIntervalSec=10s
+        StartLimitBurst=5 (5 times within above limit)
+    upstart:
+        respawn
+        respawn limit  COUNT INTERVAL
+        note: must get 'expect' right!
+    SysVinit:
+        Not available, give warning?
+
+* Figure out runlevel and before/after dependencies
+
 * Getters into both getters & setters  .. maybe
 * Add dump() diagnostic function (or is the ini-service command enuf for this?)
-* shutdown commands: stop, prestop, but no poststop
 * commands can be list ref's
     - and if non-oneshot for systemd, create/remove temp /bin/sh script
-* allow to specify user & group for service
-* Watchdog capability
 
 * Mechanism to return warnings, then
     - is_warn(), is_error(), is_ok() ... or warning() funcs?
