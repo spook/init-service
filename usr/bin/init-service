@@ -26,13 +26,15 @@ usage("*** Extraneous parameters", 1) unless @ARGV == 2;
 
 # Dispatch
 my $svc = new Init::Service();
-$func eq 'add'     ? do_add($svc, $name, $opts)    :
-$func eq 'disable' ? $svc->disable($name)          :
-$func eq 'enable'  ? $svc->enable($name)           :
-$func eq 'remove'  ? $svc->remove($name)           :
-$func eq 'start'   ? $svc->start($name)            :
-$func eq 'status'  ? do_status($svc, $name, $opts) :
-$func eq 'stop'    ? $svc->stop($name)             :
+$func eq 'add'        ? do_add($svc, $name, $opts)     :
+$func eq 'disable'    ? $svc->disable($name)           :
+$func eq 'enable'     ? $svc->enable($name)            :
+$func eq 'is-enabled' ? is_enabled($svc, $name, $opts) :
+$func eq 'is-running' ? is_running($svc, $name, $opts) :
+$func eq 'remove'     ? $svc->remove($name)            :
+$func eq 'start'      ? $svc->start($name)             :
+$func eq 'status'     ? do_status($svc, $name, $opts)  :
+$func eq 'stop'       ? $svc->stop($name)              :
 usage("*** Unknown function '$func'", 1);
 die "*** " . $svc->error . "\n" if $svc->error;
 print "Done\n" if $opts->{verbose} && ($func ne "status");
@@ -53,8 +55,8 @@ sub usage {
     add     - Create (define) the service on the system
     remove  - Makes service unknown to the system; will stop and disable first
     status  - Displays the status of the service
-    is-started - Check if the service is running now
-    is-enabled - Check if the service is enabled to start at boot
+    is-running - Check if running now (use in scripts)
+    is-enabled - Check if enabled at boot (use in scripts)
 
   General Options:
     -h --help     Show this usage help
@@ -106,6 +108,32 @@ sub do_status {
     print "Post-run: " . $svc->postrun() . "\n";
 }
 
+sub is_enabled {
+    my $svc  = shift;
+    my $name = shift;
+    my $opts = shift;
+    $svc->load(-name => $name);
+    if ($svc->error) {
+        print "$name: " . $svc->error . "\n" if $opts->{verbose};
+        exit 5;
+    }
+    print "$name: " . ($svc->enabled? "enabled\n" : "disabled\n") if $opts->{verbose};
+    exit($svc->enabled? 0 : 2);
+}
+
+sub is_running {
+    my $svc  = shift;
+    my $name = shift;
+    my $opts = shift;
+    $svc->load(-name => $name);
+    if ($svc->error) {
+        print "$name: " . $svc->error . "\n" if $opts->{verbose};
+        exit 5;
+    }
+    print "$name: " . ($svc->running? "running\n" : "stopped\n") if $opts->{verbose};
+    exit($svc->running? 0 : 2);
+}
+
 __END__
 
 =head1 NAME
@@ -130,6 +158,8 @@ Version 2017.03.13
     init-service disable foo-daemon # Make it not start at boot
     init-service remove foo-daemon  # Remove it completly
     init-service status foo-daemon  # Show its status
+    init-service is-enabled foo-daemon  # Check if enabled for boot
+    init-service is-running foo-daemon  # Check if running now
 
 
 =head1 DESCRIPTION
@@ -171,15 +201,17 @@ Example:
     Init System: upstart
     Init File:   /etc/init/foo-daemon.conf
 
-=head2 C<is-started>
+=head2 C<is-running>
 
 Checks if the service is currently running; exits with 0 if it is, non-zero if not.
 Useful within shell scripts; for a more human-friendly output use the I<status> function.
+Gives no output, just the exit status, unless --verbose.
 
 =head2 C<is-enabled>
 
 Checks if the service would start at boot; exits with 0 if it is, non-zero if not.
 Useful within shell scripts; for a more human-friendly output use the I<status> function.
+Gives no output, just the exit status, unless --verbose.
 
 =head1 AUTHOR
 
