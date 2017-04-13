@@ -283,6 +283,7 @@ sub add {
         or return $this->{err} = "Cannot create init file $initfile: $!";
     print UF "[Unit]\n";
     print UF "Description=$title\n";
+    print UF "After=network.target syslog.target\n";
 
     print UF "\n";
     print UF "[Service]\n";
@@ -678,8 +679,10 @@ sub add {
 
 ### BEGIN INIT INFO
 # Provides:          $name
-# Required-Start:    \$local_fs \$remote_fs \$syslog \$time
-# Required-Stop:     \$local_fs \$remote_fs \$syslog \$time
+# Required-Start:    \$network \$local_fs \$remote_fs \$syslog \$time
+# Required-Stop:     \$network \$local_fs \$remote_fs \$syslog \$time
+# Should-Start:      \$syslog \$named
+# Should-Stop:       \$syslog \$named
 # Default-Start:     2 3 4 5
 # Default-Stop:      0 1 6
 # Short-Description: $title
@@ -696,13 +699,33 @@ sub add {
 
 set -e
 umask 022
-. /lib/lsb/init-functions
+if [ ! -f "/etc/init.d/functions" ]; then
+    . /lib/lsb/init-functions
+    function success() { log_success_msg "$@"; }
+    function failure() { log_failure_msg "$@"; }
+else
+    . /etc/init.d/functions
+fi
+
 export PATH=$root/sbin:$root/bin:$root/usr/sbin:$root/usr/bin
+
+dist=`grep DISTRIB_ID /etc/*-release | awk -F '=' '{print \$2}'`
+PID_FILE="$root/var/run/$name.pid"
+
+if [ "\$dist" == "Ubuntu" ]; then
+    status_command="status_of_proc -p \$PID_FILE $daemon $name"
+else
+    status_command="status -p \$PID_FILE $name"
+fi
+if ! command -v \$status_command 2>/dev/null; then
+    # Hacky method for old o/s's
+    status_command="ps wax | grep -v grep | grep -q -1 '$daemon'"
+fi
 
 case "\$1" in
   start)
 	log_daemon_msg "Starting $title" "$name" || true
-	if start-stop-daemon --start --quiet --oknodo --pidfile $root/var/run/$name.pid $bgflag --exec $daemon -- $opts; then
+	if start-stop-daemon --start --quiet --oknodo --pidfile \$PID_FILE $bgflag --exec $daemon -- $opts; then
 	    log_end_msg 0 || true
 	else
 	    log_end_msg 1 || true
@@ -710,16 +733,16 @@ case "\$1" in
 	;;
   stop)
 	log_daemon_msg "Stopping $title" "$name" || true
-	if start-stop-daemon --stop --quiet --oknodo --pidfile $root/var/run/$name.pid; then
+	if start-stop-daemon --stop --quiet --oknodo --pidfile \$PID_FILE; then
 	    log_end_msg 0 || true
 	else
 	    log_end_msg 1 || true
 	fi
 	;;
 
-  reload|force-reload)
+  reload)
 	log_daemon_msg "Reloading $title" "$name" || true
-	if start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile $root/var/run/$name.pid --exec $daemon; then
+	if start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile \$PID_FILE --exec $daemon; then
 	    log_end_msg 0 || true
 	else
 	    log_end_msg 1 || true
@@ -728,10 +751,10 @@ case "\$1" in
 
   restart)
 	log_daemon_msg "Restarting $title" "$name" || true
-	start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile $root/var/run/$name.pid
+	start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile \$PID_FILE
 	check_for_no_start log_end_msg
 	check_dev_null log_end_msg
-	if start-stop-daemon --start --quiet --oknodo --pidfile $root/var/run/$name.pid $bgflag --exec $daemon -- $opts; then
+	if start-stop-daemon --start --quiet --oknodo --pidfile \$PID_FILE $bgflag --exec $daemon -- $opts; then
 	    log_end_msg 0 || true
 	else
 	    log_end_msg 1 || true
@@ -739,17 +762,13 @@ case "\$1" in
 	;;
 
 # Check if the daemon is running or not.
-#   Standard LSB functions like status_of_proc() didn't appear until recently,
-#   so we cannot depend upon them.  Instead, do a hacky search for the daemon's
-#   executable
   status)
-#	status_of_proc -p $root/var/run/$name.pid $daemon $name && exit 0 || exit \$?
-    ps wax | grep -v gep | grep -q -1 '$daemon'
+    \$status_command
     echo $name is running
 	;;
 
   *)
-	log_action_msg "Usage: $root/etc/init.d/$name {start|stop|reload|force-reload|restart|status}" || true
+	log_action_msg "Usage: $root/etc/init.d/$name {start|stop|reload|restart|status}" || true
 	exit 1
 esac
 
