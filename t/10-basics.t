@@ -5,11 +5,11 @@ use warnings;
 use Test::More;
 use Init::Service;
 
-plan tests => 20;
+plan tests => 24;
 
 # Force the unknown init system
 diag "--- Test forced UNKNOWN init system ---";
-my $svc = Init::Service->new(initsys => Init::Service::INIT_UNKNOWN);
+my $svc = Init::Service->new(useinit => Init::Service::INIT_UNKNOWN);
 ok $svc, "Created object";
 like $svc->error, qr{unknown init system}i, "Unknown init is an error";
 is $svc->initsys, Init::Service::INIT_UNKNOWN, "correct init system";
@@ -60,6 +60,19 @@ SKIP: {
     isnt $svc->initfile, q{},   "Loaded initfile: " . $svc->initfile;
     isnt $svc->initsys,  q{},   "Loaded initsys: " . $svc->initsys;
 }
+
+# Test option variations
+diag " ";
+diag "--- Option variations ---";
+$svc = new Init::Service(title => "The bar daemon", run => "/bin/true");
+is $svc->error, q{}, "Basic new(), normal opts";
+$svc = new Init::Service(TiTlE => "The bar daemon", rUN => "/bin/true");
+is $svc->error, q{}, "Basic new(), mixed case opts";
+$svc = new Init::Service(-tiTLE=> "The bar daemon", -ruN => "/bin/true");
+is $svc->error, q{}, "Basic new(), dash opts";
+
+$svc = new Init::Service(-NAME => "fiz-daemon", blahblah => "/bin/true");
+like $svc->error, qr{bad option}i, "bogus option caught";
 
 exit 0;
 

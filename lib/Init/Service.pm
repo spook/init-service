@@ -6,42 +6,86 @@ use warnings;
 
 our $VERSION = '2017.03.13';
 
+use constant ERR_OK       => q{};
 use constant INIT_UNKNOWN => "unknown";
 use constant INIT_SYSTEMV => "SysVinit";
 use constant INIT_UPSTART => "upstart";
 use constant INIT_SYSTEMD => "systemd";
-use constant OK_TYPES     => qw/
-    simple service
-    forking
-    notify
-    oneshot task
-    /;
-use constant OK_ARGS      => qw/
-    root
-    initfile
-    initsys
-    name
-    title
-    type
-    prerun
-    run
-    postrun
 
-    err
-    enabled
-    started
-    /;
 my %ALIAS_LIST = (    # Don't do 'use constant' for this
     "description"   => "title",
     "lable"         => "title",
+    "pre"           => "prerun",
     "pre-start"     => "prerun",
     "execstartpre"  => "prerun",
     "command"       => "run",
     "exec"          => "run",
     "execstart"     => "run",
+    "post"          => "postrun",
     "post-start"    => "postrun",
     "execstartpost" => "postrun",
+    "started"       => "start",
+    "enabled"       => "enable",
 );
+
+# Valid options for functions
+use constant OPTS_NEW => {
+    DEFAULT => "name",
+    name    => \&_ok_name,
+    useinit => \&_ok_initsys,
+    root    => 0,
+    title   => 0,
+    type    => \&_ok_type,
+    prerun  => 0,
+    run     => 0,
+    postrun => 0,
+    enable  => 0,
+    start   => 0,
+};
+use constant OPTS_ADD => {
+    DEFAULT => "name",
+    name    => \&_ok_name,
+    root    => 0,
+    title   => 0,
+    type    => \&_ok_type,
+    prerun  => 0,
+    run     => 0,
+    postrun => 0,
+    enable  => 0,
+    start   => 0,
+    force   => 0,
+};
+use constant OPTS_ENA => {
+    DEFAULT => "name",
+    name => \&_ok_name,
+    root => 0,
+};
+use constant OPTS_DIS => {
+    DEFAULT => "name",
+    name => \&_ok_name,
+    root => 0,
+};
+use constant OPTS_LOAD => {
+    DEFAULT => "name",
+    name => \&_ok_name,
+    root => 0,
+};
+use constant OPTS_REM => {
+    DEFAULT => "name",
+    name  => \&_ok_name,
+    root  => 0,
+    force => 0,
+};
+use constant OPTS_START => {
+    DEFAULT => "name",
+    name => \&_ok_name,
+    root => 0,
+};
+use constant OPTS_STOP => {
+    DEFAULT => "name",
+    name => \&_ok_name,
+    root => 0,
+};
 
 sub new {
     my $proto = shift;
@@ -57,35 +101,71 @@ sub new {
         prerun   => q{},                  # pre-Command executable and arguments
         run      => q{},                  # Command executable and arguments
         postrun  => q{},                  # post-Command executable and arguments
-        enabled  => 0,                    # Will start on boot
+        on_boot  => 0,                    # Will start on boot
         started  => 0,                    # Running now
     };
-    _process_args($this, @_);
-    return $this->{err} if $this->{err};
-    deduce_initsys($this) unless $this->{initsys};
-    if (   ($this->{initsys} ne INIT_SYSTEMV)
-        && ($this->{initsys} ne INIT_UPSTART)
-        && ($this->{initsys} ne INIT_SYSTEMD))
-    {
-        $this->{err}     = "Unknown init system";
-        $this->{initsys} = INIT_UNKNOWN;            # force to unknown, if passed-in was unknown
-    }
+    bless $this, $class;                  # May be re-blessed later
+    my %opts = _ckopts($this, OPTS_NEW(), @_);
+    return $this if $this->{err};
+    $this->{initsys} = $opts{useinit} || $this->deduce_initsys();
+    $this->{err} = "Unknown init system" if $this->{initsys} eq INIT_UNKNOWN;
+
     $class .= "::" . $this->{initsys};
     bless $this, $class;
 
     # Create or load on new
-    if ($this->{name} && $this->{run}) {
-        $this->add(@_);
-    }
-    elsif ($this->{name}) {
-        $this->load($this->{name});
-    }
+    $this->add()  if $opts{name} &&  $opts{run};
+    $this->load() if $opts{name} && !$opts{run};
 
     # Enabled or started on new?
-    $this->enable() if !$this->error && $this->{name} && $this->{enabled};
-    $this->start()  if !$this->error && $this->{name} && $this->{started};
+    $this->enable() if !$this->error && $opts{name} && $opts{enable};
+    $this->start()  if !$this->error && $opts{name} && $opts{start};
 
     return $this;
+}
+
+# Check options:
+#       %opts = _ckopts($this, {validopts, ...}, @_);
+#       %opts = $this->_ckopts({validopts, ...}, @_);
+#   Processes user-supplied options to a function call.
+#   Options are cleaned-up:  lowercased, trimmed, leading dash removed, and de-aliased.
+#   Then they're validated against the hashref of allowed options for this function.
+#   If a valid option, and the validopts hash has a function as its value, then
+#       that function is called with a ref to the option value,
+#       to (possibly) cleanup the value and validate it's ok.
+#   If an option name is a key in $this, then $this is updated.
+#   All cleaned-up options are returned as a hash; typically assign this to %opts.
+#   If @_ contains only one element, it is presumed to be the value for the first validopt.
+#   Error status is set in $this->{err}.
+sub _ckopts {
+    my $this = shift;
+    my $vops = shift || {};
+    my (undef, undef, undef, $func) = caller(1);
+    my %opts = ();
+    if (!%$vops && @_) {
+        $this->{err} = "$func: does not take options";
+        return ();
+    }
+    unshift @_, ($vops->{"DEFAULT"} || q{})    # handle single-option value
+        if %$vops && @_ == 1;
+    while (@_) {
+        my $k = lc shift;
+        $k =~ s/^\s*-?(.+?)\s*$/$1/;    # trim, remove leading dash if given
+        my $v = shift || q{};           # Want to use // but Perl 5.8
+        $k = $ALIAS_LIST{$k} || $k;     # De-alias
+        if (!exists $vops->{$k}) {
+            $this->{err} = "$func: bad option $k";
+            return ();
+        }
+        if ((ref($vops->{$k}) eq "CODE") && (my $err = $vops->{$k}->(\$v))) {
+            $this->{err} = "$func: bad value for $k: $err";
+            return ();
+        }
+        $opts{$k} = $v;
+        $this->{$k} = $v if exists $this->{$k};
+    }
+    $this->{err} = ERR_OK;
+    return %opts;
 }
 
 sub deduce_initsys {
@@ -112,55 +192,61 @@ sub deduce_initsys {
     return $this->{initsys} = INIT_UNKNOWN;
 }
 
-sub _process_args {
-    my $this = shift;
-    while (@_) {
-        my $k = lc shift;
-        $k =~ s/^\s*(.+?)\s*$/$1/;    # trim
-        my $v = shift || q{};         # Want to use // but Perl 5.8
-        $this->{$k} = $v;
-    }
+# Value cleaners & checkers
+sub _ok_initsys {
+    my $vp = shift;
+    $$vp =~ s{^\s*(.+?)\s*}{$1};    # trim
+    $$vp = INIT_UNKNOWN if lc($$vp) eq "unknown";
+    $$vp = INIT_SYSTEMV if lc($$vp) eq "sysv";
+    $$vp = INIT_SYSTEMV if lc($$vp) eq "sysvinit";
+    $$vp = INIT_UPSTART if lc($$vp) eq "upstart";
+    $$vp = INIT_SYSTEMD if lc($$vp) eq "systemd";
+    return ERR_OK;
+}
 
-    # Replace aliases
-    while (my ($alias, $real) = each %ALIAS_LIST) {
-        $this->{$real} = delete $this->{$alias} if $this->{$alias};
-    }
+sub _ok_lctrim {
+    my $vp = shift;
+    $$vp =~ s{^\s*(.+?)\s*}{$1};    # trim
+    $$vp = lc $$vp;
+    return ERR_OK;
+}
 
-    # Common checks
-    if ($this->{name} && $this->{name} !~ m/^[\w\-\.\@\:]+$/i) {
-        return $this->{err} = "Bad service name, must contain only a-zA-z0-9.-_\@:";
-    }
-    if ($this->{name} && (length($this->{name}) > 64)) {
-        return $this->{err} = "Bad service name, maximum length is 64 characters";
-    }
-    if ($this->{type}) {
-        $this->{type} = lc($this->{type});
-        $this->{type} = "simple" if $this->{type} eq "service";
-        $this->{type} = "oneshot" if $this->{type} eq "task";
-        return $this->{err} = "Bad type, must be " . join(", ", OK_TYPES)
-            unless grep $this->{type}, OK_TYPES;
-    }
+sub _ok_name {
+    my $vp = shift;
+    $$vp =~ s{^\s*(.+?)\s*}{$1};    # trim
+    return "empty"                  if $$vp eq q{};
+    return "too long, max 64 chars" if length($$vp) > 64;
+    return "only a-zA-z0-9.-_\@:"   if $$vp !~ m/^[\w\-\.\@\:]+$/i;
+    return ERR_OK;
+}
 
-    # Only known keywords allowed
-    foreach my $k (keys %$this) {
-        return $this->{err} = "Unknown keyword: $k"
-            unless grep $k, OK_ARGS;
-    }
-
+sub _ok_type {
+    my $vp = shift;
+    $$vp =~ s{^\s*(.+?)\s*}{$1};    # trim
+    $$vp = lc $$vp;
+    $$vp = "simple" if $$vp eq "service";
+    $$vp = "oneshot" if $$vp eq "task";
+    $$vp = "forking" if $$vp eq "daemon";
+    return ERR_OK if $$vp eq "simple";
+    return ERR_OK if $$vp eq "oneshot";
+    return ERR_OK if $$vp eq "notify";
+    return ERR_OK if $$vp eq "forking";
+    return "must be simple, oneshot, notify, or forking";
 }
 
 # Accessors
 sub prerun   {return shift->{prerun};}
 sub run      {return shift->{run};}
 sub postrun  {return shift->{postrun};}
-sub enabled  {return shift->{enabled};}
 sub error    {return shift->{err};}
 sub initfile {return shift->{initfile};}
 sub initsys  {return shift->{initsys};}
 sub name     {return shift->{name};}
-sub running  {return shift->{running};}
 sub title    {return shift->{title};}
 sub type     {return shift->{type};}
+
+sub enabled {return shift->{on_boot};}
+sub running {return shift->{running};}
 
 #       ------- o -------
 
@@ -168,7 +254,7 @@ package Init::Service::unknown;
 our $VERSION = $Init::Service::VERSION;
 our @ISA     = qw/Init::Service/;
 
-# Return the error from the constructor
+# Unknown initsys always returns the error set in the constructor
 sub add     {return shift->{err};}
 sub disable {return shift->{err};}
 sub enable  {return shift->{err};}
@@ -182,25 +268,25 @@ sub stop    {return shift->{err};}
 package Init::Service::systemd;
 our $VERSION = $Init::Service::VERSION;
 our @ISA     = qw/Init::Service/;
+use constant ERR_OK => q{};
 
 sub add {
     my $this = shift;
-    my %args = ();
-    Init::Service::_process_args(\%args, @_);
-    return $this->{err} = $args{err} if $args{err};
-    my $name  = $args{name};
-    my $title = $args{title} || q{};
-    my $type  = $args{type} || "simple";
-    my $pre   = $args{prerun};
-    my $run   = $args{run};
-    my $post  = $args{postrun};
-    return $this->{err} = "Insufficient arguments; name and run required"
+    my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
+    return $this->{err} if $this->{err};
+    my $name  = $this->{name};
+    my $title = $this->{title};
+    my $type  = $this->{type} || "simple";
+    my $pre   = $this->{prerun};
+    my $run   = $this->{run};
+    my $post  = $this->{postrun};
+    return $this->{err} = "Missing options; name and run required"
         if !$name || !$run;
 
     # Create unit file
     my $initfile = $this->{initfile} = "$this->{root}/lib/systemd/system/$name.service";
-    return $this->{err} = "Service already exists: $name"
-        if -e $initfile && !$args{force};
+    return $this->{err} = "Service exists: $name"
+        if -e $initfile && !$opts{force};
 
     open(UF, '>', $initfile)
         or return $this->{err} = "Cannot create init file $initfile: $!";
@@ -222,109 +308,114 @@ sub add {
     chmod 0644, $initfile
         or return $this->{err} = "Cannot chmod 644 file $initfile: $!";
 
-    # Copy attributes into ourselves
-    $this->{name}    = $name;
-    $this->{title}   = $title;
-    $this->{type}    = $type;
-    $this->{prerun}  = $pre;
-    $this->{run}     = $run;
-    $this->{postrun} = $post;
+    # Set attributes
+    $this->{err}     = ERR_OK;
     $this->{running} = 0;
-    $this->{enabled} = 0;
+    $this->{on_boot} = 0;
 
     # Enabled or started on add?
-    $this->{err} = q{};
-    $this->enable() if $args{enabled};
-    $this->start() if !$this->error && $args{started};
+    $this->enable() if !$this->error && $opts{name} && $opts{enable};
+    $this->start()  if !$this->error && $opts{name} && $opts{start};
 
     return $this->{err};
 }
 
 sub disable {
     my $this = shift;
-    return $this->{err} = "First load or add a service"
-        unless $this->{name};
+    my %opts = $this->_ckopts(Init::Service::OPTS_DIS(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
     my $out = qx(systemctl disable $this->{name}.service 2>&1);
     return $this->{err} = "Cannot disable $this->{name}: $!\n\t$out"
         if $?;
-    $this->{enabled} = 0;
-    return $this->{err} = q{};
+    $this->{on_boot} = 0;
+    return $this->{err} = ERR_OK;
 }
 
 sub enable {
     my $this = shift;
-    return $this->{err} = "First load or add a service"
-        unless $this->{name};
+    my %opts = $this->_ckopts(Init::Service::OPTS_ENA(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
     my $out = qx(systemctl enable $this->{name}.service 2>&1);
     return $this->{err} = "Cannot enable $this->{name}: $!\n\t$out"
         if $?;
-    $this->{enabled} = 1;
-    return $this->{err} = q{};
+    $this->{on_boot} = 1;
+    return $this->{err} = ERR_OK;
 }
 
 sub load {
     my $this = shift;
-    my $name = shift;
+    my %opts = $this->_ckopts(Init::Service::OPTS_LOAD(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+    my $name = $this->{name};
 
     my @lines = qx(systemctl show $name.service 2>&1);
     my %info = map {split(/=/, $_, 2)} @lines;
     return $this->{err} = "No such service $name"
-        if !%info || $info{LoadState} !~ m/loaded/i;
+        if !%info || ($info{LoadState} !~ m/loaded/i);
     my $pre = $info{ExecStartPre} || q{};
     $pre = $1 if $pre =~ m{argv\[]=(.+?)\s*\;};
     my $run = $info{ExecStart} || q{};
     $run = $1 if $run =~ m{argv\[]=(.+?)\s*\;};
     my $post = $info{ExecStartPost} || q{};
     $post = $1 if $post =~ m{argv\[]=(.+?)\s*\;};
-    $this->{name}    = $name;
-    $this->{prerun}  = $pre;
-    $this->{run}     = $run;
-    $this->{postrun} = $post;
-    $this->{title}   = $info{Description};
-    $this->{type}    = $info{Type};
-    $this->{running} = $info{SubState} =~ m/running/i ? 1 : 0;
-    $this->{enabled} = $info{UnitFileState} =~ m/enabled/i ? 1 : 0;
+    $this->{name}     = $name;
+    $this->{prerun}   = $pre;
+    $this->{run}      = $run;
+    $this->{postrun}  = $post;
+    $this->{title}    = $info{Description};
+    $this->{type}     = $info{Type};
+    $this->{running}  = $info{SubState} =~ m/running/i ? 1 : 0;
+    $this->{on_boot}  = $info{UnitFileState} =~ m/enabled/i ? 1 : 0;
     $this->{initfile} = "$this->{root}/lib/systemd/system/$name.service";
 
     foreach my $k (qw/prerun run postrun title type/) {
         chomp $this->{$k};
     }
+
+    return $this->{err} = ERR_OK;
 }
 
 sub remove {
     my $this = shift;
-    my $name = shift || $this->{name};
-    my %args;
-    Init::Service::_process_args(\%args, @_);
+    my %opts = $this->_ckopts(Init::Service::OPTS_REM(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+    my $name = $this->{name};
 
     # If we're removing it, we must first insure its stopped and disabled
-    $this->stop($name);    #ignore errors except...? XXX
-    $this->disable($name);
+    $this->stop();    #ignore errors except...? XXX
+    $this->disable();
 
     # Now remove the unit file(s)
     my $initfile = "$this->{root}/lib/systemd/system/$name.service";
-    return $this->{err} = "Service does not exist: $name"
-        if !-e $initfile && !$args{force};
+    return $this->{err} = "No such service $name"
+        if !-e $initfile && !$opts{force};
     my $n = unlink $initfile;
     return $this->{err} = "Cannot remove service $name: $!" unless $n;
-    $this->{name}    = q{};
-    $this->{prerun}  = q{};
-    $this->{run}     = q{};
-    $this->{postrun} = q{};
-    $this->{title}   = q{};
-    $this->{type}    = q{};
+    $this->{name}     = q{};
+    $this->{prerun}   = q{};
+    $this->{run}      = q{};
+    $this->{postrun}  = q{};
+    $this->{title}    = q{};
+    $this->{type}     = q{};
     $this->{initfile} = q{};
-    $this->{running} = 0;
-    $this->{enabled} = 0;
+    $this->{running}  = 0;
+    $this->{on_boot}  = 0;
     return $this->{err} = q{};
 }
 
 sub start {
     my $this = shift;
-    return $this->{err} = "First load or add a service"
-        unless $this->{name};
-    my $out = qx(systemctl start $this->{name}.service 2>&1);
-    return $this->{err} = "Cannot start $this->{name}: $!\n\t$out"
+    my %opts = $this->_ckopts(Init::Service::OPTS_START(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+    my $name = $this->{name};
+
+    my $out = qx(systemctl start $name.service 2>&1);
+    return $this->{err} = "Cannot start $name: $!\n\t$out"
         if $?;
     $this->{running} = 1;
     return $this->{err} = q{};
@@ -332,8 +423,11 @@ sub start {
 
 sub stop {
     my $this = shift;
-    return $this->{err} = "First load or add a service"
-        unless $this->{name};
+    my %opts = $this->_ckopts(Init::Service::OPTS_STOP(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+    my $name = $this->{name};
+
     my $out = qx(systemctl stop $this->{name}.service 2>&1);
     return $this->{err} = "Cannot stop $this->{name}: $!\n\t$out"
         if $?;
@@ -387,7 +481,7 @@ sub add {
     $this->{run}     = $run;
     $this->{postrun} = $post;
     $this->{running} = 0;
-    $this->{enabled} = 0;
+    $this->{on_boot} = 0;
 
     # Enabled or started on add?
     $this->{err} = q{};
@@ -399,13 +493,13 @@ sub add {
 
 sub disable {
     my $this = shift;
-    $this->{enabled} = 0;
+    $this->{on_boot} = 0;
     return $this->_enadis();
 }
 
 sub enable {
     my $this = shift;
-    $this->{enabled} = 1;
+    $this->{on_boot} = 1;
     return $this->_enadis();
 }
 
@@ -456,7 +550,7 @@ sub load {
     $this->{run}     = q{};
     $this->{postrun} = q{};
     $this->{running} = 0;
-    $this->{enabled} = 0;
+    $this->{on_boot} = 0;
 
     # Parse the init file
     my $initfile = $this->{initfile} = "$this->{root}/etc/init/$name.conf";
@@ -469,7 +563,7 @@ sub load {
         $this->{prerun}  = $1        if $line =~ m{^\s*pre-start\s+exec\s+(.+)$}i;
         $this->{run}     = $1        if $line =~ m{^\s*exec\s+(.+)$}i;
         $this->{postrun} = $1        if $line =~ m{^\s*post-start\s+exec\s+(.+)$}i;
-        $this->{enabled} = 1         if $line =~ m{^\s*start\s+on\b}i;
+        $this->{on_boot} = 1         if $line =~ m{^\s*start\s+on\b}i;
     }
     close UF;
 
@@ -502,14 +596,14 @@ sub remove {
     return $this->{err} = "Cannot remove service $name: $!" unless $n;
 
     # Clear all
-    $this->{name}    = q{};
-    $this->{prerun}  = q{};
-    $this->{run}     = q{};
-    $this->{postrun} = q{};
-    $this->{title}   = q{};
-    $this->{type}    = q{};
-    $this->{running} = 0;
-    $this->{enabled} = 0;
+    $this->{name}     = q{};
+    $this->{prerun}   = q{};
+    $this->{run}      = q{};
+    $this->{postrun}  = q{};
+    $this->{title}    = q{};
+    $this->{type}     = q{};
+    $this->{running}  = 0;
+    $this->{on_boot}  = 0;
     $this->{initfile} = q{};
     return $this->{err} = q{};
 }
@@ -547,10 +641,10 @@ sub add {
     my %args = ();
     Init::Service::_process_args(\%args, @_);
     return $this->{err} = $args{err} if $args{err};
-    my $root  = $args{root}  || $this->{root};
+    my $root  = $args{root} || $this->{root};
     my $name  = $args{name};
     my $title = $args{title} || q{};
-    my $type  = $args{type}  || "simple";
+    my $type  = $args{type} || "simple";
     my $pre   = $args{prerun};
     my $run   = $args{run};
     my $post  = $args{postrun};
@@ -661,7 +755,7 @@ __EOSCRIPT__
     $this->{run}     = $run;
     $this->{postrun} = $post;
     $this->{running} = 0;
-    $this->{enabled} = 0;
+    $this->{on_boot} = 0;
 
     # Enabled or started on add?
     $this->{err} = q{};
@@ -680,7 +774,7 @@ sub disable {
     if (-x $cmdurc) {
         my $out = qx($cmdurc -f $this->{name} remove 2>&1);
         return $this->{err} = "Cannot clear init links for $this->{name}: $!\n\t$out" if $?;
-           $out = qx($cmdurc $this->{name} stop 72 0 1 2 3 4 5 6 S . 2>&1);
+        $out = qx($cmdurc $this->{name} stop 72 0 1 2 3 4 5 6 S . 2>&1);
         return $this->{err} = "Cannot stop init links for $this->{name}: $!\n\t$out" if $?;
     }
     elsif (-x $cmdchk) {
@@ -688,10 +782,11 @@ sub disable {
         return $this->{err} = "Cannot stop init links for $this->{name}: $!\n\t$out" if $?;
     }
     else {
-        return $this->{err} = "Cannot stop init links for $this->{name}: no update-rc.d nor chkconfig";
+        return $this->{err}
+            = "Cannot stop init links for $this->{name}: no update-rc.d nor chkconfig";
     }
 
-    $this->{enabled} = 0;
+    $this->{on_boot} = 0;
     return $this->{err} = q{};
 }
 
@@ -710,10 +805,11 @@ sub enable {
         return $this->{err} = "Cannot add init links for $this->{name}: $!\n\t$out" if $?;
     }
     else {
-        return $this->{err} = "Cannot add init links for $this->{name}: no update-rc.d nor chkconfig";
+        return $this->{err}
+            = "Cannot add init links for $this->{name}: no update-rc.d nor chkconfig";
     }
 
-    $this->{enabled} = 1;
+    $this->{on_boot} = 1;
     return $this->{err} = q{};
 }
 
@@ -729,7 +825,7 @@ sub load {
     $this->{run}     = q{};
     $this->{postrun} = q{};
     $this->{running} = 0;
-    $this->{enabled} = 0;
+    $this->{on_boot} = 0;
 
     # Parse the init file
     my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
@@ -760,11 +856,11 @@ sub load {
         # We don't use the command here - but ensure it's there
         # Instead we look for start links at runlevels 2 3 4 5
         my @startlinks = glob("$this->{root}/etc/rc[2345].d/S[0-9][0-9]$name");
-        $this->{enabled} = @startlinks > 0 ? 1 : 0;
+        $this->{on_boot} = @startlinks > 0 ? 1 : 0;
     }
     elsif (-x $cmdchk) {
         my $out = qx($cmdchk --list $name 2>&1) || q{};
-        $this->{enabled} = $out =~ m{\s[2345]\:on\b}i;
+        $this->{on_boot} = $out =~ m{\s[2345]\:on\b}i;
     }
     else {
         return $this->{err} = "Cannot check boot state for $name";
@@ -804,14 +900,14 @@ sub remove {
     }
 
     # Clear all
-    $this->{name}    = q{};
-    $this->{prerun}  = q{};
-    $this->{run}     = q{};
-    $this->{postrun} = q{};
-    $this->{title}   = q{};
-    $this->{type}    = q{};
-    $this->{running} = 0;
-    $this->{enabled} = 0;
+    $this->{name}     = q{};
+    $this->{prerun}   = q{};
+    $this->{run}      = q{};
+    $this->{postrun}  = q{};
+    $this->{title}    = q{};
+    $this->{type}     = q{};
+    $this->{running}  = 0;
+    $this->{on_boot}  = 0;
     $this->{initfile} = q{};
     return $this->{err} = q{};
 }
@@ -1037,8 +1133,8 @@ You must provide at least the I<name> and I<run> arguments to add a new service.
               prerun  => "/bin/foo-prep -a",      # Optional pre-start command(s)
               run     => "/bin/foo-daemon -D",    # Required command(s) to run the service
               postrun => "/bin/foo-fix -x",       # Optional post-start command(s)
-              enabled => 1,                       # Optional, enable to start at boot
-              started => 1,                       # Optional, start the service now
+              enable  => 1,                       # Optional, enable to start at boot
+              start   => 1,                       # Optional, start the service now
              );
     if ($svc->error) {
         die "*** Cannot add service: " . $svc->error;
@@ -1061,10 +1157,14 @@ To un-do an C<add()>, use C<remove()>.
 Disables the service so that it will not start at boot.  This is the opposite of C<enable>.
 This does not affect a running service instance; it only affects what happens at boot-time.
 
+The reverse of C<disable()> is C<enable()>.
+
 =head2 C<enable>
 
 Enables the service so that it will start at boot.  This is the opposite of C<disable>.
 This does not affect a stopped service instance; it only affects what happens at boot-time.
+
+The reverse of C<enable()> is C<disable()>.
 
 =head2 C<load>
 
@@ -1082,7 +1182,6 @@ If the service is running, it will be stopped first.
 If the service is enabled for boot, it will be disabled.
 
 To use this function, either provide the name of the service, or you must add() or load() it first.
-
 
 =head1 AUTHOR
 
@@ -1152,7 +1251,10 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 
 =cut
 
-To Do:
+To Do / TODO:
+* Getters into both getters & setters
+* Allow dashes in front of options, is -name => "blah"
+* Add dump() diagnostic function (or is the ini-service command enuf for this?)
 * shutdown commands: stop, prestop, but no poststop
 * commands can be list ref's
     - and if non-oneshot for systemd, create/remove temp /bin/sh script
