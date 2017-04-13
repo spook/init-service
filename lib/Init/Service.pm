@@ -306,6 +306,7 @@ sub add {
 
     # Enabled or started on add?
     $this->{err}     = ERR_OK;
+    $this->{type}    = $type;
     $this->{running} = 0;
     $this->{on_boot} = 0;
     $this->enable() if !$this->error && $opts{name} && $opts{enable};
@@ -432,7 +433,7 @@ sub stop {
     return $this->{err} = "Cannot stop $name: $!\n\t$out"
         if $?;
     $this->{running} = 0;
-    return $this->{err} = q{};
+    return $this->{err} = ERR_OK;
 }
 
 #       ------- o -------
@@ -478,6 +479,7 @@ sub add {
 
     # Enabled or started on add?
     $this->{err}     = ERR_OK;
+    $this->{type}    = $type;
     $this->{running} = 0;
     $this->{on_boot} = 0;
     $this->enable() if !$this->error && $opts{name} && $opts{enable};
@@ -643,7 +645,7 @@ sub stop {
     return $this->{err} = "Cannot stop $name: $!\n\t$out"
         if $?;
     $this->{running} = 0;
-    return $this->{err} = q{};
+    return $this->{err} = ERR_OK;
 }
 
 #       ------- o -------
@@ -651,23 +653,23 @@ sub stop {
 package Init::Service::SysVinit;
 our $VERSION = $Init::Service::VERSION;
 our @ISA     = qw/Init::Service/;
+use constant ERR_OK => Init::Service::ERR_OK;
 
 sub add {
     my $this = shift;
-    my %args = ();
-    Init::Service::_process_args(\%args, @_);
-    return $this->{err} = $args{err} if $args{err};
-    my $root  = $args{root} || $this->{root};
-    my $name  = $args{name};
-    my $title = $args{title} || q{};
-    my $type  = $args{type} || "simple";
-    my $pre   = $args{prerun};
-    my $run   = $args{run};
-    my $post  = $args{postrun};
-    return $this->{err} = "Insufficient arguments; name and run required"
+    my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
+    return $this->{err} if $this->{err};
+    my $root  = $this->{root} || q{};
+    my $name  = $this->{name};
+    my $title = $this->{title};
+    my $type  = $this->{type} || "simple";
+    my $pre   = $this->{prerun};
+    my $run   = $this->{run};
+    my $post  = $this->{postrun};
+    return $this->{err} = "Missing options; name and run required"
         if !$name || !$run;
-    my ($daemon, $opts) = $run =~ m/^\s*(\S+)\s+(.+)$/;
 
+    my ($daemon, $opts) = $run =~ m/^\s*(\S+)\s+(.+)$/;
     my $bgflag = ($type eq "simple") || ($type eq "notify") ? "--background" : q{};
 
     # Form the script
@@ -756,6 +758,8 @@ __EOSCRIPT__
 
     # Create the init file
     my $initfile = $this->{initfile} = "$root/etc/init.d/$name";
+    return $this->{err} = "Service exists: $name"
+        if -e $initfile && !$opts{force};
     open(IF, '>', $initfile)
         or return $this->{err} = "Cannot create init file $initfile: $!";
     print IF $script;
@@ -763,26 +767,22 @@ __EOSCRIPT__
     chmod 0755, $initfile
         or return $this->{err} = "Cannot chmod 755 file $initfile: $!";
 
-    # Copy attributes into ourselves
-    $this->{name}    = $name;
-    $this->{title}   = $title;
+    # Enabled or started on add?
+    $this->{err}     = ERR_OK;
     $this->{type}    = $type;
-    $this->{prerun}  = $pre;
-    $this->{run}     = $run;
-    $this->{postrun} = $post;
     $this->{running} = 0;
     $this->{on_boot} = 0;
-
-    # Enabled or started on add?
-    $this->{err} = q{};
-    $this->enable() if $args{enabled};
-    $this->start() if !$this->error && $args{started};
+    $this->enable() if !$this->error && $opts{name} && $opts{enable};
+    $this->start()  if !$this->error && $opts{name} && $opts{start};
 
     return $this->{err};
 }
 
 sub disable {
     my $this = shift;
+    my %opts = $this->_ckopts(Init::Service::OPTS_DIS(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
 
     # Disable it for boot at all runlevels
     my $cmdurc = "$this->{root}/usr/sbin/update-rc.d";
@@ -803,11 +803,14 @@ sub disable {
     }
 
     $this->{on_boot} = 0;
-    return $this->{err} = q{};
+    return $this->{err} = ERR_OK;
 }
 
 sub enable {
     my $this = shift;
+    my %opts = $this->_ckopts(Init::Service::OPTS_ENA(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
 
     # Enable it for boot with the default runlevels
     my $cmdurc = "$this->{root}/usr/sbin/update-rc.d";
@@ -826,12 +829,15 @@ sub enable {
     }
 
     $this->{on_boot} = 1;
-    return $this->{err} = q{};
+    return $this->{err} = ERR_OK;
 }
 
 sub load {
     my $this = shift;
-    my $name = shift;
+    my %opts = $this->_ckopts(Init::Service::OPTS_LOAD(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+    my $name = $this->{name};
 
     # Reset everything
     $this->{name}    = $name;
@@ -881,24 +887,27 @@ sub load {
     else {
         return $this->{err} = "Cannot check boot state for $name";
     }
+
+    return $this->{err} = ERR_OK;
 }
 
 sub remove {
     my $this = shift;
-    my $name = shift || $this->{name};
-    my %args;
-    Init::Service::_process_args(\%args, @_);
-    my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
+    my %opts = $this->_ckopts(Init::Service::OPTS_REM(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+    my $name = $this->{name};
 
     # If we're removing it, we must first insure its stopped and disabled
-    $this->stop($name);    #ignore errors except...? XXX
-    $this->disable($name);
+    $this->stop();    #ignore errors except...? XXX
+    $this->disable();
 
     # Remove script
-    if ($this->{initfile}) {
-        my $n = unlink $this->{initfile};
-        return $this->{err} = "Cannot remove init file $this->{initfile}: $!" if !$n;
-    }
+    my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
+    return $this->{err} = "No such service $name"
+        if !-e $initfile && !$opts{force};
+    my $n = unlink $initfile;
+    return $this->{err} = "Cannot remove service $name: $!" unless $n;
 
     # Remove links: update-rc.d remove ...
     my $cmdurc = "$this->{root}/usr/sbin/update-rc.d";
@@ -922,30 +931,42 @@ sub remove {
     $this->{postrun}  = q{};
     $this->{title}    = q{};
     $this->{type}     = q{};
+    $this->{initfile} = q{};
     $this->{running}  = 0;
     $this->{on_boot}  = 0;
-    $this->{initfile} = q{};
-    return $this->{err} = q{};
+    return $this->{err} = ERR_OK;
 }
 
 sub start {
     my $this = shift;
-    return $this->{err} = "No init file" unless $this->{initfile};
+    my %opts = $this->_ckopts(Init::Service::OPTS_START(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+    my $name = $this->{name};
 
     # Run the init's own start command
+    my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
     my $out = qx($this->{initfile} start 2>&1);
-    $this->{running} = 1 if !$?;
-    return $this->{err} = q{};
+    return $this->{err} = "Cannot start $name: $!\n\t$out"
+        if $?;
+    $this->{running} = 1;
+    return $this->{err} = ERR_OK;
 }
 
 sub stop {
     my $this = shift;
-    return $this->{err} = "No init file" unless $this->{initfile};
+    my %opts = $this->_ckopts(Init::Service::OPTS_STOP(), @_);
+    return $this->{err} if $this->{err};
+    return $this->{err} = "Missing service name" unless $this->{name};
+    my $name = $this->{name};
 
     # Run the init's own stop command
+    my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
     my $out = qx($this->{initfile} stop 2>&1);
-    $this->{running} = 0 if !$?;
-    return $this->{err} = q{};
+    return $this->{err} = "Cannot stop $name: $!\n\t$out"
+        if $?;
+    $this->{running} = 0;
+    return $this->{err} = ERR_OK;
 }
 
 1;
@@ -1261,14 +1282,28 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SO
 =cut
 
 To Do / TODO:
-* shutdown commands: stop, prestop, but no poststop
+* stop commands:  stop and post-stop.  There isn't alignment btwn systemd & upstart, sadly.
+    systemd:
+        ExecStop
+        ExecStopPost
+        KillMode
+        KillSignal
+    upstart:
+        pre-stop
+        post-stop
+    SysVinit:
+        insert commands into script
+
 * PIDfile option
+* nice and umask options
 * allow to specify user & group for service
-    systemd: 
+    systemd:
     upstart: setuid setgid  (upstart 1.4 +)
-* StandardOutput option or where to write stdout/stderr
+* Where to write stdout/stderr
+    systemd: StandardOutput option
+    upstart: console none|log|ouotput
 * ExecReload or related reload option
-    systemd: 
+    systemd:
     upstart: reload signal
     sysvinit: write command into script
 * Option to specify additional initfile values, per init-type: --extra-upstart, --extra-systemd, ...
