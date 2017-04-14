@@ -676,7 +676,10 @@ sub add {
     # Form the script
     my $script = <<"__EOSCRIPT__";
 #! /bin/sh
-
+# chkconfig:         2345 72 28
+# description:       $title
+# processname:       $name
+# pidfile:           $root/var/run/$name.pid
 ### BEGIN INIT INFO
 # Provides:          $name
 # Required-Start:    \$network \$local_fs \$remote_fs \$syslog \$time
@@ -1314,6 +1317,10 @@ To Do / TODO:
         insert commands into script
 
 * PIDfile option
+    systemd: PIDFile
+    upstart: Not available - does not use it, but see this: http://stackoverflow.com/questions/9972023/ubuntu-upstart-and-creating-a-pid-for-monitoring
+        Could give exec cmd to start-stop-daemon --start --make-pidfile --pidfile
+    SysVinit: in script, arg to start-stop-daemon
 * nice and umask options
 * allow to specify user & group for service
     systemd:
