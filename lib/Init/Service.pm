@@ -1239,42 +1239,20 @@ To use this function, either provide the name of the service, or you must add() 
 
 Uncle Spook, C<< <spook at MisfitMountain.org> >>
 
-=head1 BUGS
+=head1 BUGS & SUPPORT
 
-Please report any bugs or feature requests to C<bug-init-service at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Init-Service>.  I will be notified, and then you'll
-automatically be notified of progress on your bug as I make changes.
+Please report any bugs or feature requests via the GitHub issue
+tracker at https://github.com/spook/service/issues .
 
-
-=head1 SUPPORT
 
 You can find documentation for this module with the perldoc command.
 
     perldoc Init::Service
 
+or via its man pages:
 
-You can also look for information at:
-
-=over 4
-
-=item * RT: CPAN's request tracker (report bugs here)
-
-L<http://rt.cpan.org/NoAuth/Bugs.html?Dist=Init-Service>
-
-=item * AnnoCPAN: Annotated CPAN documentation
-
-L<http://annocpan.org/dist/Init-Service>
-
-=item * CPAN Ratings
-
-L<http://cpanratings.perl.org/d/Init-Service>
-
-=item * Search CPAN
-
-L<http://search.cpan.org/dist/Init-Service/>
-
-=back
-
+    man init-service        # for the command line interface
+    man Init::Service       # for the Perl module
 
 =head1 ACKNOWLEDGEMENTS
 
@@ -1286,90 +1264,22 @@ This program is released under the following license: MIT
 Copyright 2017 Uncle Spook.
 See https://github.com/spook/service
 
-Permission is hereby granted, free of charge, to any person obtaining a copy of this software and
-associated documentation files (the "Software"), to deal in the Software without restriction,
-including without limitation the rights to use, copy, modify, merge, publish, distribute,
-sublicense, and/or sell copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+Permission is hereby granted, free of charge, to any person obtaining a
+copy of this software and associated documentation files (the "Software"),
+to deal in the Software without restriction, including without limitation
+the rights to use, copy, modify, merge, publish, distribute, sublicense,
+and/or sell copies of the Software, and to permit persons to whom the Software
+is furnished to do so, subject to the following conditions:
 
-The above copyright notice and this permission notice shall be included in all copies or
-substantial portions of the Software.
+The above copyright notice and this permission notice shall be included in all
+copies or substantial portions of the Software.
 
-THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT
-NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
-NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM,
-DAMAGES OR OTHER LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+SOFTWARE.
 
 =cut
-
-To Do / TODO:
-* stop commands:  stop and post-stop.  There isn't alignment btwn systemd & upstart, sadly.
-    systemd:
-        ExecStop
-        ExecStopPost
-        KillMode
-        KillSignal
-    upstart:
-        pre-stop
-        post-stop
-    SysVinit:
-        insert commands into script
-
-* PIDfile option
-    systemd: PIDFile
-    upstart: Not available - does not use it, but see this: http://stackoverflow.com/questions/9972023/ubuntu-upstart-and-creating-a-pid-for-monitoring
-        Could give exec cmd to start-stop-daemon --start --make-pidfile --pidfile
-    SysVinit: in script, arg to start-stop-daemon
-* nice and umask options
-* allow to specify user & group for service
-    systemd:
-    upstart: setuid setgid  (upstart 1.4 +)
-* Where to write stdout/stderr
-    systemd: StandardOutput option
-    upstart: console none|log|ouotput
-* ExecReload or related reload option
-    systemd:
-    upstart: reload signal
-    sysvinit: write command into script
-* Option to specify additional initfile values, per init-type: --extra-upstart, --extra-systemd, ...
-
-* Watchdog capability
-    Use some simple values, like "urgently", "typical", "patient" and map to a set of values.
-    systemd:
-        Restart=on-failure
-        RestartSec=3s  (default is 100ms)
-        StartLimitIntervalSec=10s
-        StartLimitBurst=5 (5 times within above limit)
-    upstart:
-        respawn
-        respawn limit  COUNT INTERVAL
-        note: must get 'expect' right!
-    SysVinit:
-        Not available, give warning?
-
-* Figure out runlevel and before/after dependencies
-
-* Getters into both getters & setters  .. maybe
-* Add dump() diagnostic function (or is the ini-service command enuf for this?)
-* commands can be list ref's
-    - and if non-oneshot for systemd, create/remove temp /bin/sh script
-
-* Mechanism to return warnings, then
-    - is_warn(), is_error(), is_ok() ... or warning() funcs?
-    - add if existing is warning
-    - remove not there is warning
-* Handle other initsys's like launchd, Service Management Facility, runit, Mudur, procd...
-
-
-Other references:
-
-* How to find out if you're running SysV, upstart, or systemd:
-http://unix.stackexchange.com/questions/196166/how-to-find-out-if-a-system-uses-sysv-upstart-or-systemd-initsystem
-
-* Upstart intro & Cookbook:
-http://upstart.ubuntu.com/cookbook
-
-* Details on what systemd does when there are also SysV init.d scripts in place:
-http://unix.stackexchange.com/questions/233468/how-does-systemd-use-etc-init-d-scripts
-The answer by JdeBP seems most correct.  He also provides good furthur reading.

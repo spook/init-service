@@ -1,0 +1,71 @@
+To Do
+
+* stop commands:  stop and post-stop.  There isn't alignment btwn systemd & upstart, sadly.
+    systemd:
+        ExecStop
+        ExecStopPost
+        KillMode
+        KillSignal
+    upstart:
+        pre-stop
+        post-stop
+    SysVinit:
+        insert commands into script
+
+* PIDfile option
+    systemd: PIDFile
+    upstart: Not available - does not use it, but see this: http://stackoverflow.com/questions/9972023/ubuntu-upstart-and-creating-a-pid-for-monitoring
+        Could give exec cmd to start-stop-daemon --start --make-pidfile --pidfile
+    SysVinit: in script, arg to start-stop-daemon
+* nice and umask options
+* allow to specify user & group for service
+    systemd:
+    upstart: setuid setgid  (upstart 1.4 +)
+* Where to write stdout/stderr
+    systemd: StandardOutput option
+    upstart: console none|log|ouotput
+* ExecReload or related reload option
+    systemd:
+    upstart: reload signal
+    sysvinit: write command into script
+* Option to specify additional initfile values, per init-type: --extra-upstart, --extra-systemd, ...
+
+* Watchdog capability
+    Use some simple values, like "urgently", "typical", "patient" and map to a set of values.
+    systemd:
+        Restart=on-failure
+        RestartSec=3s  (default is 100ms)
+        StartLimitIntervalSec=10s
+        StartLimitBurst=5 (5 times within above limit)
+    upstart:
+        respawn
+        respawn limit  COUNT INTERVAL
+        note: must get 'expect' right!
+    SysVinit:
+        Not available, give warning?
+
+* Figure out runlevel and before/after dependencies
+
+* Getters into both getters & setters  .. maybe
+* Add dump() diagnostic function (or is the ini-service command enuf for this?)
+* commands can be list ref's
+    - and if non-oneshot for systemd, create/remove temp /bin/sh script
+
+* Mechanism to return warnings, then
+    - is_warn(), is_error(), is_ok() ... or warning() funcs?
+    - add if existing is warning
+    - remove not there is warning
+* Handle other initsys's like launchd, Service Management Facility, runit, Mudur, procd...
+
+
+Other references:
+
+* How to find out if you're running SysV, upstart, or systemd:
+http://unix.stackexchange.com/questions/196166/how-to-find-out-if-a-system-uses-sysv-upstart-or-systemd-initsystem
+
+* Upstart intro & Cookbook:
+http://upstart.ubuntu.com/cookbook
+
+* Details on what systemd does when there are also SysV init.d scripts in place:
+http://unix.stackexchange.com/questions/233468/how-does-systemd-use-etc-init-d-scripts
+The answer by JdeBP seems most correct.  He also provides good furthur reading.
