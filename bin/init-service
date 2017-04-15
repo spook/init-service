@@ -97,15 +97,17 @@ sub do_status {
     my $opts = shift;
     $svc->load(-name => $name);
     die "*** " . $svc->error . "\n" if $svc->error;
-    print "Service:  " . $svc->name . "\n";
-    print "Running:  " . ($svc->running ? "Yes\n" : "No\n");
-    print "Enabled:  " . ($svc->enabled ? "Yes\n" : "No\n");
+    print "Service:   " . $svc->name . "\n";
+    print "Running:   " . ($svc->running ? "Yes\n" : "No\n");
+    print "Enabled:   " . ($svc->enabled ? "Yes\n" : "No\n");
     return unless $opts->{verbose};
-    print "Type:     " . $svc->type . "\n";
-    print "Title:    " . $svc->title . "\n";
-    print "Pre-run:  " . $svc->prerun() . "\n";
-    print "Run:      " . $svc->run() . "\n";
-    print "Post-run: " . $svc->postrun() . "\n";
+    print "Init Sys:  " . $svc->initsys . "\n";
+    print "Init File: " . $svc->initfile . "\n";
+    print "Type:      " . $svc->type . "\n";
+    print "Title:     " . $svc->title . "\n";
+    print "Pre-run:   " . $svc->prerun() . "\n";
+    print "Run:       " . $svc->run() . "\n";
+    print "Post-run:  " . $svc->postrun() . "\n";
 }
 
 sub is_enabled {
