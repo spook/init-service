@@ -9,6 +9,7 @@ WriteMakefile(
     VERSION_FROM     => 'lib/Init/Service.pm',
     ABSTRACT_FROM    => 'lib/Init/Service.pm',
     LICENSE          => 'MIT',
+    EXE_FILES        => ['bin/init-service'],
     PL_FILES         => {},
     MIN_PERL_VERSION => '5.006',
     CONFIGURE_REQUIRES => {
