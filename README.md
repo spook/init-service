@@ -4,12 +4,13 @@ this command makes it easy to add/remove, enable/disable for boot, start/stop,
 and check status on your system services.  
 
 You no longer need to write init.d scripts, upstart .conf files, nor systemd
-unit files!  This command handles the creation/removal of the init file for 
+unit files!  This command handles the creation/removal of the init file for
 your service and the management of the underlying init system so your service
-is started or not at boot, can be started or stopped immediately, and also to 
-check status on your service. 
+is started or not at boot, can be started or stopped immediately, and also to
+check status on your service.
 
 You must be root to use this command.
+
 ## Synopsys
 
     # Define (create/add) a new system service called foo-daemon
@@ -24,6 +25,57 @@ You must be root to use this command.
     init-service disable foo-daemon # Make it not start at boot
     init-service remove foo-daemon  # Remove it completly
     init-service status foo-daemon  # Show its status
+
+## Installation
+
+### From Source
+
+To install this module from source, unpack the distribution,
+then run the following commands:
+
+	perl Makefile.PL
+	make
+	sudo make test
+	sudo make install
+
+Note that the tests are also run sudo; this is to fully test the
+installation and removal of a dummy service.  If not run as root,
+then only a subset of tests will be run.
+
+### From .deb package
+
+Install the package as you would any other Debian package:
+
+    sudo dpkg -i init-service-XXYYZZ.deb
+
+### From .rpm package
+
+Install the package as you would any other RPM package:
+
+    sudo rpm -ivh init-service-XXYYZZ.rpm
+
+### Manual Install
+
+There's not much to this package: a Perl module and a Perl main-program.
+Look for the Init::Service module (Service.pm) and put it, with its
+parent 'Init' directory in your normal Perl library location.
+For example (your destination will vary):
+
+    cp -r ./lib/Init  /usr/local/share/perl/5.22.1/
+    chmod 0444 /usr/local/share/perl/5.22.1/Init/Service.pm
+
+Then for the "main" program, the init-service script:
+
+    cp ./bin/init-service  /usr/local/bin/
+    chmod 0755 /usr/local/bin/init-service
+
+You may also want to build the man pages from the POD at the bottom
+of each of the above two files; use `pod2man` then place in the usual
+locations:
+
+    /usr/local/man/man1/init-service.1p
+    /usr/local/man/man3/Init::Service.3pm
+
 
 ## Usage
 ```
