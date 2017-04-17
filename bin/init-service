@@ -105,9 +105,21 @@ sub do_status {
     print "Init File: " . $svc->initfile . "\n";
     print "Type:      " . $svc->type . "\n";
     print "Title:     " . $svc->title . "\n";
-    print "Pre-run:   " . $svc->prerun() . "\n";
+    my $prerun = $svc->prerun();
+    if (ref $prerun) {
+        print "Pre-run:\n    " . join("    \n", @$prerun) . "\n";
+    }
+    else {
+        print "Pre-run:   $prerun\n";
+    }
     print "Run:       " . $svc->run() . "\n";
-    print "Post-run:  " . $svc->postrun() . "\n";
+    my $postrun = $svc->postrun();
+    if (ref $postrun) {
+        print "Post-run:\n    " . join("    \n", @$postrun) . "\n";
+    }
+    else {
+        print "Post-run:  $postrun\n";
+    }
 }
 
 sub is_enabled {

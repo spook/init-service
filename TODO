@@ -1,5 +1,6 @@
 To Do
 
+* Change is-running to is-active, to match systemd
 * stop commands:  stop and post-stop.  There isn't alignment btwn systemd & upstart, sadly.
     systemd:
         ExecStop
