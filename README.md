@@ -107,3 +107,31 @@ Usage: init-service FUNCTION SVCNAME [options...]
     -e --enable       Enable the service so it starts at boot
     -s --start        Start the service now, after adding it
 ```
+
+## Want to help?
+
+Would you like to contribute to this project?  I'd love the help!
+First, understand the project's goals:
+* init-service is NOT the be-all, end-all.  It's scope is to handle
+the common, popular situations for working with simple services.
+* Minimal dependencies: Currently it requires /bin/sh and core Perl modules;
+eventually I want this to be shell only.
+
+The best way to help is to test and fix this to work on various flavors
+and versions of Linux operating systems.  To date, these are tested:
+* Ubuntu 16.04
+* Ubuntu 14.04
+* Ubuntu 12.04
+* Ubuntu  8.04
+* Ubuntu  6.06
+* CentOS 5.5
+* CentOS 6.5
+* CentOS 7.1
+
+More are welcome!  For other work, look to the TODO file in the distribution.  Thanx!
+
+-- Uncle Spook
+
+## See Also
+
+For something similar, see Jordan Sissel's *Please, Run!*: https://github.com/jordansissel/pleaserun
