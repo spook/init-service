@@ -194,15 +194,27 @@ You must be root to use this command.
 
 =head2 C<add>
 
+TBS...
+
 =head2 C<remove>
+
+TBS...
 
 =head2 C<start>
 
+TBS...
+
 =head2 C<stop>
+
+TBS...
 
 =head2 C<enable>
 
+TBS...
+
 =head2 C<disable>
+
+TBS...
 
 =head2 C<status>
 
@@ -231,12 +243,20 @@ Gives no output, just the exit status, unless --verbose.
 
 Uncle Spook, C<< <spook at MisfitMountain.org> >>
 
-=head1 BUGS
+=head1 BUGS & SUPPORT
 
-Please report any bugs or feature requests to C<bug-init-service at rt.cpan.org>, or through
-the web interface at L<http://rt.cpan.org/NoAuth/ReportBug.html?Queue=Init-Service>.
-I will be notified, and then you'll automatically be notified of progress on your
-bug as I make changes.
+Please report any bugs or feature requests via the GitHub issue
+tracker at https://github.com/spook/service/issues .
+
+You can find documentation for this module with the perldoc command.
+
+    perldoc Init::Service
+
+or via its man pages:
+
+    man init-service        # for the command line interface
+    man Init::Service       # for the Perl module
+
 
 =head1 SUPPORT
 
