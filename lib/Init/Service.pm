@@ -124,6 +124,25 @@ sub new {
     return $this;
 }
 
+# Add if list:
+#   Helper, use like  $a = _tolist($a, $v);
+#   If $a is blank, assign $v to it
+#   If $a is a string, convert $a to a listref of original $a and $v
+#   Else if $a is a listref push $v onto it
+sub _tolist {
+    my ($a, $v) = @_;
+    if (!$a) {
+        $a = $v;
+    }
+    elsif (!ref($a)) {
+        $a = [$a, $v];
+    }
+    else {
+        push @$a, $v;
+    }
+    return $a;
+}
+
 # Check options:
 #       %opts = _ckopts($this, {validopts, ...}, @_);
 #       %opts = $this->_ckopts({validopts, ...}, @_);
@@ -363,32 +382,48 @@ sub load {
     return $this->{err} = "Missing service name" unless $this->{name};
     my $name = $this->{name};
 
-    my @lines     = qx(systemctl show $name.service 2>&1);
-    my %info      = map {split(/=/, $_, 2)} @lines;
-    my $loadstate = $info{LoadState} || "unknown";
-    chomp $loadstate;
-    return $this->{err} = "No such service $name (LoadState=$loadstate)"
-        if $loadstate !~ m/loaded/i;
-    my $pre = $info{ExecStartPre} || q{};    # XXX: handle multiple Pre's
-    $pre = $1 if $pre =~ m{argv\[]=(.+?)\s*\;};
-    my $run = $info{ExecStart} || q{};
-    $run = $1 if $run =~ m{argv\[]=(.+?)\s*\;};
-    my $post = $info{ExecStartPost} || q{};    # XXX handle multiple Post's
-    $post = $1 if $post =~ m{argv\[]=(.+?)\s*\;};
+    # Clear everything first
     $this->{name}     = $name;
-    $this->{prerun}   = $pre;
-    $this->{run}      = $run;
-    $this->{postrun}  = $post;
-    $this->{title}    = $info{Description};
-    $this->{type}     = $info{Type};
-    $this->{running}  = $info{SubState} =~ m/running/i ? 1 : 0;
-    $this->{on_boot}  = $info{UnitFileState} =~ m/enabled/i ? 1 : 0;
+    $this->{title}    = q{};
+    $this->{type}     = 'simple';
+    $this->{prerun}   = q{};
+    $this->{run}      = q{};
+    $this->{postrun}  = q{};
+    $this->{running}  = 0;
+    $this->{on_boot}  = 0;
     $this->{initfile} = "$this->{root}/lib/systemd/system/$name.service";
 
-    foreach my $k (qw/prerun run postrun title type/) {
-        chomp $this->{$k};
-    }
+    my $loadstate = "unknown";
+    my @lines     = qx(systemctl show $name.service 2>&1);
+    foreach my $line (@lines) {
+        chomp $line;
+        my ($k, $v) = split(/=/, $line, 2);
+        $loadstate = $v if $k eq 'LoadState';
+        if ($k eq 'ExecStartPre') {
+            $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
+            $this->{prerun} = Init::Service::_tolist($this->{prerun}, $v);
+        }
+        if ($k eq 'ExecStart') {
 
+            # Our 'run' can be only a single command; if we get several,
+            # push the prior back to the pre-run
+            if ($this->{run}) {
+                $this->{prerun} = Init::Service::_tolist($this->{prerun}, $this->{run});
+            }
+            $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
+            $this->{run} = $v;
+        }
+        if ($k eq 'ExecStartPost') {
+            $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
+            $this->{postrun} = Init::Service::_tolist($this->{postrun}, $v);
+        }
+        $this->{type}    = $v if $k eq 'Type';
+        $this->{title}   = $v if $k eq 'Description';
+        $this->{running} = 1 if ($k eq 'SubState')      && ($v =~ m/running/i);
+        $this->{on_boot} = 1 if ($k eq 'UnitFileState') && ($v =~ m/enabled/i);
+    }
+    return $this->{err} = "No such service $name (LoadState=$loadstate)"
+        if $loadstate !~ m/loaded/i;
     return $this->{err} = ERR_OK;
 }
 
