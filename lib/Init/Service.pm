@@ -632,8 +632,7 @@ sub load {
             }
             else {
                 chomp $line;
-                $this->{prerun} = [$this->{prerun}] if !ref $this->{prerun};
-                push @{$this->{prerun}}, $line;
+                $this->{prerun} = Init::Service::_tolist($this->{prerun}, $line);
             }
             next;
         }
@@ -644,8 +643,7 @@ sub load {
             }
             else {
                 chomp $line;
-                $this->{postrun} = [$this->{postrun}] if !ref $this->{postrun};
-                push @{$this->{postrun}}, $line;
+                $this->{postrun} = Init::Service::_tolist($this->{postrun}, $line);
             }
             next;
         }
@@ -987,8 +985,7 @@ sub load {
             }
             else {
                 chomp $line;
-                $this->{prerun} = [$this->{prerun}] if !ref $this->{prerun};
-                push @{$this->{prerun}}, $line;
+                $this->{prerun} = Init::Service::_tolist($this->{prerun}, $line);
             }
             next;
         }
@@ -999,8 +996,7 @@ sub load {
             }
             else {
                 chomp $line;
-                $this->{postrun} = [$this->{postrun}] if !ref $this->{postrun};
-                push @{$this->{postrun}}, $line;
+                $this->{postrun} = Init::Service::_tolist($this->{postrun}, $line);
             }
             next;
         }
