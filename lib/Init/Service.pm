@@ -57,34 +57,34 @@ use constant OPTS_ADD => {
 };
 use constant OPTS_ENA => {
     DEFAULT => "name",
-    name => \&_ok_name,
-    root => 0,
+    name    => \&_ok_name,
+    root    => 0,
 };
 use constant OPTS_DIS => {
     DEFAULT => "name",
-    name => \&_ok_name,
-    root => 0,
+    name    => \&_ok_name,
+    root    => 0,
 };
 use constant OPTS_LOAD => {
     DEFAULT => "name",
-    name => \&_ok_name,
-    root => 0,
+    name    => \&_ok_name,
+    root    => 0,
 };
 use constant OPTS_REM => {
     DEFAULT => "name",
-    name  => \&_ok_name,
-    root  => 0,
-    force => 0,
+    name    => \&_ok_name,
+    root    => 0,
+    force   => 0,
 };
 use constant OPTS_START => {
     DEFAULT => "name",
-    name => \&_ok_name,
-    root => 0,
+    name    => \&_ok_name,
+    root    => 0,
 };
 use constant OPTS_STOP => {
     DEFAULT => "name",
-    name => \&_ok_name,
-    root => 0,
+    name    => \&_ok_name,
+    root    => 0,
 };
 
 sub new {
@@ -114,7 +114,7 @@ sub new {
     bless $this, $class;
 
     # Create or load on new
-    $this->add()  if $opts{name} &&  $opts{run};
+    $this->add()  if $opts{name} && $opts{run};
     $this->load() if $opts{name} && !$opts{run};
 
     # Enabled or started on new?
@@ -150,9 +150,9 @@ sub _ckopts {
         if %$vops && @_ == 1;
     while (@_) {
         my $k = lc shift;
-        $k =~ s/^\s*-?(.+?)\s*$/$1/;    # trim, remove leading dash if given
-        my $v = shift || q{};           # Want to use // but Perl 5.8
-        $k = $ALIAS_LIST{$k} || $k;     # De-alias
+        $k =~ s/^\s*-?(.+?)\s*$/$1/;           # trim, remove leading dash if given
+        my $v = shift || q{};                  # Want to use // but Perl 5.8
+        $k = $ALIAS_LIST{$k} || $k;            # De-alias
         if (!exists $vops->{$k}) {
             $this->{err} = "$func: bad option $k";
             return ();
@@ -363,17 +363,17 @@ sub load {
     return $this->{err} = "Missing service name" unless $this->{name};
     my $name = $this->{name};
 
-    my @lines = qx(systemctl show $name.service 2>&1);
-    my %info = map {split(/=/, $_, 2)} @lines;
+    my @lines     = qx(systemctl show $name.service 2>&1);
+    my %info      = map {split(/=/, $_, 2)} @lines;
     my $loadstate = $info{LoadState} || "unknown";
     chomp $loadstate;
     return $this->{err} = "No such service $name (LoadState=$loadstate)"
         if $loadstate !~ m/loaded/i;
-    my $pre = $info{ExecStartPre} || q{};       # XXX: handle multiple Pre's
+    my $pre = $info{ExecStartPre} || q{};    # XXX: handle multiple Pre's
     $pre = $1 if $pre =~ m{argv\[]=(.+?)\s*\;};
     my $run = $info{ExecStart} || q{};
     $run = $1 if $run =~ m{argv\[]=(.+?)\s*\;};
-    my $post = $info{ExecStartPost} || q{};     # XXX handle multiple Post's
+    my $post = $info{ExecStartPost} || q{};    # XXX handle multiple Post's
     $post = $1 if $post =~ m{argv\[]=(.+?)\s*\;};
     $this->{name}     = $name;
     $this->{prerun}   = $pre;
@@ -532,9 +532,9 @@ sub enable {
 
 # Helper function - Enable or disable
 sub _enadis {
-    my $this = shift;
+    my $this   = shift;
     my $enable = shift;
-    my $name = $this->{name};
+    my $name   = $this->{name};
 
     # Inhale the file line by line, removing any existing start on / stop on clauses
     my $contents = q{};
@@ -614,7 +614,7 @@ sub load {
             }
             next;
         }
-        $inpost = 1 if $line =~ m{^\s*post-start\s+script\s*$}i;
+        $inpost          = 1         if $line =~ m{^\s*post-start\s+script\s*$}i;
         $this->{title}   = $1        if $line =~ m{^\s*description\s+"?(.+?)"?\s*$}i;
         $this->{type}    = 'forking' if $line =~ m{^\s*expect\s+daemon\b}i;
         $this->{type}    = 'notify'  if $line =~ m{^\s*expect\s+stop\b}i;
@@ -723,16 +723,18 @@ sub add {
     my $bgflag = ($type eq "simple") || ($type eq "notify") ? "--background" : q{};
 
     if ($pre) {
-        $pre = "\n    log_daemon_msg \"Pre-Start $title\" \"$name\" || true"
-             . "\n    " . join("    \n", ref $pre? @$pre : ($pre))
-             . "\n    log_end_msg 0 || true"
-             ;
+        $pre
+            = "\n    log_daemon_msg \"Pre-Start $title\" \"$name\" || true"
+            . "\n    "
+            . join("    \n", ref $pre ? @$pre : ($pre))
+            . "\n    log_end_msg 0 || true";
     }
     if ($post) {
-        $post = "\n    log_daemon_msg \"Post-Start $title\" \"$name\" || true"
-              . "\n    " . join("    \n", ref $post? @$post : ($post))
-              . "\n    log_end_msg 0 || true"
-              ;
+        $post
+            = "\n    log_daemon_msg \"Post-Start $title\" \"$name\" || true"
+            . "\n    "
+            . join("    \n", ref $post ? @$post : ($post))
+            . "\n    log_end_msg 0 || true";
     }
 
     # Form the script
@@ -943,6 +945,7 @@ sub load {
     my $daemon = q{};
     my $dopts  = q{};
     while (my $line = <UF>) {
+
         if ($inpre) {
             if ($line =~ m{^\s*#\s*END\s+PRE-START\s*$}i) {
                 $inpre = 0;
@@ -966,11 +969,11 @@ sub load {
             }
             next;
         }
-        $inpost = 1 if $line =~ m{^\s*#\s*BEGIN\s+POST-START\s*$}i;
-        $this->{title}   = $1 if $line =~ m{^\s*#\s*short-description:\s+(.+?)\s*$}i;
-        $this->{type}    = $1 if $line =~ m{^\s*TYPE=\s*(.+?)\s*$};
-        $dopts           = $1 if $line =~ m{^\s*DOPTS=\s*(.+?)\s*$};
-        $daemon          = $1 if $line =~ m{^\s*DAEMON=\s*(.+?)\s*$};
+        $inpost        = 1  if $line =~ m{^\s*#\s*BEGIN\s+POST-START\s*$}i;
+        $this->{title} = $1 if $line =~ m{^\s*#\s*short-description:\s+(.+?)\s*$}i;
+        $this->{type}  = $1 if $line =~ m{^\s*TYPE=\s*(.+?)\s*$};
+        $dopts         = $1 if $line =~ m{^\s*DOPTS=\s*(.+?)\s*$};
+        $daemon        = $1 if $line =~ m{^\s*DAEMON=\s*(.+?)\s*$};
     }
     close UF;
     $this->{run} = "$daemon $dopts";
