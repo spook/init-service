@@ -1,0 +1,20 @@
+---
+# Ansible playbook
+# Deploy the tarball to each test host
+- hosts:  all
+  tasks:
+  - name: Copy tarball to system
+    copy: 
+      src:  "{{ item }}"
+      dest: /home/steve/
+    with_fileglob: "/home/steve/dvo/service/Init-Service-*.tar.gz"
+    register: tarballs
+
+  - name: unpack tarball
+    command: tar -xvzf {{ item }}
+    with_items: "{{ tarballs.results | map(attribute='dest') | list }}"
+    register: unpack
+
+  - name: make package
+    shell: cd Init-Service-*; perl Makefile.PL; make; make test
+

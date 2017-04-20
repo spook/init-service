@@ -1,0 +1,12 @@
+[centos]
+ce0505-64-svr
+ce0608-64-svr
+ce0703-64-svr
+
+[ubuntu]
+ub0606-32-svr
+ub0804-64-svr
+ub1004-64-svr
+ub1204-64-svr
+ub1404-64-svr
+ub1604-64-svr

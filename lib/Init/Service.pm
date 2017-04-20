@@ -1318,10 +1318,10 @@ dash "-", dot ".", underscore "_", colon ":", or the at-sign "@".
 The maximum length is 64 characters.
 
 The prerun, run, and postrun commands must use absolute paths to the executable.
-Multiple commands can be specified by passing an arrayref:
+Multiple commands can be specified for prerun and postrun -- but not C<run> -- by passing an arrayref:
 
-              run => ["/bin/foo-red -a 2",
-                      "/bin/foo-daemon -D -p1234"]
+              prerun => ["/bin/foo-red -a 2",
+                         "/bin/foo-daemon -D -p1234"]
 
 To un-do an C<add()>, use C<remove()>.
 

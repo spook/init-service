@@ -1,0 +1,30 @@
+---
+# Ansible playbook
+# Test the package files without installing
+- hosts:  all
+  tasks:
+  - name: Copy the command file
+    copy: 
+      src:  ../bin/init-service
+      dest: /home/steve/init-service/
+      mode: 0755
+
+  - name: Copy the Perl module
+    copy: 
+      src:  ../lib
+      dest: /home/steve/init-service/
+      mode: 0644
+
+  - name: Copy the tests
+    copy: 
+      src:  ../t
+      dest: /home/steve/init-service/
+      mode: 0744
+
+  - name: non-priv tests
+    shell: cd init-service; perl -Ilib t/10-basics.t
+
+  - name: priv tests
+    shell: cd init-service; sudo perl -Ilib t/20-simple.t
+
+
