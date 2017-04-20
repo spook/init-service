@@ -417,8 +417,8 @@ sub load {
             $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
             $this->{postrun} = Init::Service::_tolist($this->{postrun}, $v);
         }
-        $this->{type}    = $v if $k eq 'Type';
-        $this->{title}   = $v if $k eq 'Description';
+        $this->{type}  = $v if $k eq 'Type';
+        $this->{title} = $v if $k eq 'Description';
         $this->{running} = 1 if ($k eq 'SubState')      && ($v =~ m/running/i);
         $this->{on_boot} = 1 if ($k eq 'UnitFileState') && ($v =~ m/enabled/i);
     }
@@ -1008,6 +1008,24 @@ sub load {
     }
     close UF;
     $this->{run} = "$daemon $dopts";
+
+    # Trim log message begin's & end's that we added when created
+    if (   ref($this->{prerun})
+        && (@{$this->{prerun}} >= 2)
+        && ($this->{prerun}->[0] =~ m{^\s+log_daemon_msg\s})
+        && ($this->{prerun}->[-1] =~ m{^\s+log_end_msg\s}))
+    {
+        shift @{$this->{prerun}};    # Remove first
+        pop @{$this->{prerun}};      # Remove last
+    }
+    if (   ref($this->{postrun})
+        && (@{$this->{postrun}} >= 2)
+        && ($this->{postrun}->[0] =~ m{^\s+log_daemon_msg\s})
+        && ($this->{postrun}->[-1] =~ m{^\s+log_end_msg\s}))
+    {
+        shift @{$this->{postrun}};    # Remove first
+        pop @{$this->{postrun}};      # Remove last
+    }
 
     # Run the init's status to see if it's running
     my $out = qx($initfile status 2>&1);
