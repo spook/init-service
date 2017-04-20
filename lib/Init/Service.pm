@@ -757,7 +757,7 @@ sub add {
 
     if ($pre) {
         $pre
-            = "\n    log_daemon_msg \"Pre-Start $title\" \"$name\" || true"
+            = "\n    log_daemon_msg \"Pre-Start  $title\" \"$name\" || true"
             . "\n    "
             . join("    \n", ref $pre ? @$pre : ($pre))
             . "\n    log_end_msg 0 || true";
@@ -792,18 +792,23 @@ sub add {
 
 set -e
 umask 022
-if [ ! -f "/etc/init.d/functions" ]; then
+if [ -f /etc/init.d/functions ] ; then
+    . /etc/init.d/functions
+elif [ -f /etc/rc.d/init.d/functions ] ; then
+    . /etc/rc.d/init.d/functions
+elif [ -f /lib/lsb/init-functions ]; then
     . /lib/lsb/init-functions
     function success() { log_success_msg "$@"; }
     function failure() { log_failure_msg "$@"; }
 else
-    . /etc/init.d/functions
+    echo "*** Service functions not available" 1>&2
+    exit 5
 fi
 
 export PATH=$root/usr/local/sbin:$root/usr/local/bin:$root/sbin:$root/bin:$root/usr/sbin:$root/usr/bin
 TYPE=$type
 NAME=$name
-DOPTS=$opts
+DOPTS="$opts"
 DAEMON=$daemon
 
 dist=`grep DISTRIB_ID /etc/*-release | awk -F '=' '{print \$2}'`
@@ -823,7 +828,7 @@ case "\$1" in
   start)
     # BEGIN PRE-START$pre
     # END PRE-START
-    log_daemon_msg "Starting $title" "\$NAME" || true
+    log_daemon_msg "Starting   $title" "\$NAME" || true
     if start-stop-daemon --start --quiet --oknodo --pidfile \$PID_FILE $bgflag --exec \$DAEMON -- \$DOPTS; then
         log_end_msg 0 || true
     else
@@ -852,18 +857,10 @@ case "\$1" in
     ;;
 
   restart)
-    log_daemon_msg "Restarting $title" "\$NAME" || true
-    start-stop-daemon --stop --quiet --oknodo --retry 30 --pidfile \$PID_FILE
-    check_for_no_start log_end_msg
-    check_dev_null log_end_msg
-    if start-stop-daemon --start --quiet --oknodo --pidfile \$PID_FILE $bgflag --exec \$DAEMON -- \$DOPTS; then
-        log_end_msg 0 || true
-    else
-        log_end_msg 1 || true
-    fi
+    $0 stop
+    $0 start
     ;;
 
-# Check if the daemon is running or not.
   status)
     \$status_command
     echo \$NAME is running
