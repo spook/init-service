@@ -1016,7 +1016,9 @@ sub load {
         && ($this->{prerun}->[-1] =~ m{^\s+log_end_msg\s}))
     {
         shift @{$this->{prerun}};    # Remove first
-        pop @{$this->{prerun}};      # Remove last
+        pop   @{$this->{prerun}};    # Remove last
+        $this->{prerun} = q{} if !@{$this->{prerun}};
+        $this->{prerun} = $this->{prerun}->[0] if @{$this->{prerun}} == 1;
     }
     if (   ref($this->{postrun})
         && (@{$this->{postrun}} >= 2)
@@ -1024,7 +1026,9 @@ sub load {
         && ($this->{postrun}->[-1] =~ m{^\s+log_end_msg\s}))
     {
         shift @{$this->{postrun}};    # Remove first
-        pop @{$this->{postrun}};      # Remove last
+        pop   @{$this->{postrun}};    # Remove last
+        $this->{postrun} = q{} if !@{$this->{postrun}};
+        $this->{postrun} = $this->{postrun}->[0] if @{$this->{postrun}} == 1;
     }
 
     # Run the init's status to see if it's running
