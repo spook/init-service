@@ -786,10 +786,9 @@ sub add {
 # Short-Description: $title
 ### END INIT INFO
 
-set -e
+set +e
 umask 022
 
-export PATH=$root/usr/local/sbin:$root/usr/local/bin:$root/sbin:$root/bin:$root/usr/sbin:$root/usr/bin
 TYPE=$type
 NAME=$name
 DOPTS="$opts"
@@ -839,6 +838,9 @@ if ! command -v log_daemon_msg >/dev/null 2>&1; then
     }
 fi
 
+set -e
+export PATH=$root/usr/local/sbin:$root/usr/local/bin:$root/sbin:$root/bin:$root/usr/sbin:$root/usr/bin
+
 case "\$1" in
   start)
     # BEGIN PRE-START$prechunk
@@ -877,7 +879,7 @@ case "\$1" in
     ;;
 
   status)
-    if \$STATUS_CMD; then
+    if \$STATUS_CMD 1>/dev/null 2>&1; then
         echo \$NAME is running
         exit 0
     else
@@ -933,7 +935,10 @@ sub disable {
     }
     elsif (-x $cmdchk) {
         my $out = qx($cmdchk --levels 0123456 $this->{name} off 2>&1) || q{};
-        return $this->{err} = "Cannot stop init links for $this->{name}: $!\n\t$out" if $?;
+        return $this->{err} = "Cannot set levels off for $this->{name}: $!\n\t$out" if $?;
+        $out = qx($cmdchk --del $this->{name} 2>&1) || q{};
+        return $this->{err} = "Cannot delete service for $this->{name}: $!\n\t$out" if $?;
+
     }
     else {
         return $this->{err}
@@ -959,7 +964,9 @@ sub enable {
     }
     elsif (-x $cmdchk) {
         my $out = qx($cmdchk --add $this->{name} 2>&1) || q{};
-        return $this->{err} = "Cannot add init links for $this->{name}: $!\n\t$out" if $?;
+        return $this->{err} = "Cannot add service for $this->{name}: $!\n\t$out" if $?;
+        $out = qx($cmdchk --level 2345 $this->{name} on 2>&1) || q{};
+        return $this->{err} = "Cannot set levels on for $this->{name}: $!\n\t$out" if $?;
     }
     else {
         return $this->{err}
@@ -1087,13 +1094,6 @@ sub remove {
     $this->stop();    #ignore errors except...? XXX
     $this->disable();
 
-    # Remove script
-    my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
-    return $this->{err} = "No such service $name"
-        if !-e $initfile && !$opts{force};
-    my $n = unlink $initfile;
-    return $this->{err} = "Cannot remove service $name: $!" unless $n;
-
     # Remove links: update-rc.d remove ...
     my $cmdurc = "$this->{root}/usr/sbin/update-rc.d";
     my $cmdchk = "$this->{root}/sbin/chkconfig";
@@ -1108,6 +1108,13 @@ sub remove {
     else {
         return $this->{err} = "Cannot remove init links for $name: no update-rc.d nor chkconfig";
     }
+
+    # Remove script
+    my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
+    return $this->{err} = "No such service $name"
+        if !-e $initfile && !$opts{force};
+    my $n = unlink $initfile;
+    return $this->{err} = "Cannot remove service $name: $!" unless $n;
 
     # Clear all
     $this->{name}     = q{};
