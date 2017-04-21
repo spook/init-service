@@ -703,7 +703,7 @@ sub start {
     return $this->{err} = "Missing service name" unless $this->{name};
     my $name = $this->{name};
 
-    my $out = qx(service $this->{name} start 2>&1);
+    my $out = qx(start $this->{name} 2>&1);
     return $this->{err} = "Cannot start $name: $!\n\t$out"
         if $?;
     $this->{running} = 1;
@@ -717,7 +717,7 @@ sub stop {
     return $this->{err} = "Missing service name" unless $this->{name};
     my $name = $this->{name};
 
-    my $out = qx(service $name stop 2>&1);
+    my $out = qx(stop $name 2>&1);
     return $this->{err} = "Cannot stop $name: $!\n\t$out"
         if $?;
     $this->{running} = 0;
