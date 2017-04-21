@@ -825,6 +825,20 @@ else
     STATUS_CMD=ckstat
 fi
 
+if ! command -v log_daemon_msg >/dev/null 2>&1; then
+    function log_action_msg() { echo "--- " \$*; }
+    function log_daemon_msg() { echo "--- " \$*; }
+    function log_end_msg() { 
+        RET=\$1; 
+        if [ \$1 -eq 0 ]; then
+            echo "--- Success"
+        else
+            echo "*** Failed"
+        fi
+        return \$RET;
+    }
+fi
+
 case "\$1" in
   start)
     # BEGIN PRE-START$prechunk
