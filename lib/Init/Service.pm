@@ -1017,7 +1017,7 @@ sub load {
             next;
         }
         if ($inpost) {
-            if ($line =~ m{^\s*#\s*END\s+POST\s+START\s*$}i) {
+            if ($line =~ m{^\s*#\s*END\s+POST-START\s*$}i) {
                 $inpost = 0;
             }
             else {
@@ -1029,7 +1029,7 @@ sub load {
         }
         $this->{title} = $1 if $line =~ m{^\s*#\s*short-description:\s+(.+?)\s*$}i;
         $this->{type}  = $1 if $line =~ m{^\s*TYPE=\s*(.+?)\s*$};
-        $dopts         = $1 if $line =~ m{^\s*DOPTS=\s*(.+?)\s*$};
+        $dopts         = $1 if $line =~ m{^\s*DOPTS=\s*\"?(.+?)\"?\s*$};
         $daemon        = $1 if $line =~ m{^\s*DAEMON=\s*(.+?)\s*$};
     }
     close UF;
@@ -1037,15 +1037,15 @@ sub load {
 
     # Trim log message begin's & end's that we added when created
     if (   (@{$this->{prerun}} >= 2)
-        && ($this->{prerun}->[0] =~ m{^\s+log_daemon_msg\s})
-        && ($this->{prerun}->[-1] =~ m{^\s+log_end_msg\s}))
+        && ($this->{prerun}->[0]  =~ m{^log_daemon_msg\s})
+        && ($this->{prerun}->[-1] =~ m{^log_end_msg\s}))
     {
         shift @{$this->{prerun}};    # Remove first
         pop @{$this->{prerun}};      # Remove last
     }
     if (   (@{$this->{postrun}} >= 2)
-        && ($this->{postrun}->[0] =~ m{^\s+log_daemon_msg\s})
-        && ($this->{postrun}->[-1] =~ m{^\s+log_end_msg\s}))
+        && ($this->{postrun}->[0]  =~ m{^log_daemon_msg\s})
+        && ($this->{postrun}->[-1] =~ m{^log_end_msg\s}))
     {
         shift @{$this->{postrun}};    # Remove first
         pop @{$this->{postrun}};      # Remove last
