@@ -14,6 +14,8 @@ SKIP: {
 
     # Make the daemon script
     diag "--- Create a dummy daemon ---";
+    my @pre;
+    my @pos;
     my $svc_nam = "test-020";
     my $svc_pre = "/bin/true 1 2 3";
     my $svc_exe = "/tmp/$svc_nam.sh";
@@ -49,11 +51,13 @@ SKIP: {
         postrun => $svc_pos,
         title   => $svc_tit
     );
+    @pre = $svc->prerun();
+    @pos = $svc->postrun();
     is $svc->error, q{}, "add() service status";
     is $svc->name(),    $svc_nam, "  Name correct";
-    is $svc->prerun(),  $svc_pre, "  PreRun correct";
-    is $svc->run(),     $svc_run, "  Run correct";
-    is $svc->postrun(), $svc_pos, "  PostRun correct";
+    is_deeply \@pre,    [$svc_pre], "  PreRun correct";
+    is $svc->run(),     $svc_run,   "  Run correct";
+    is_deeply \@pos,    [$svc_pos], "  PostRun correct";
     is $svc->title(),   $svc_tit, "  Title correct";
     is $svc->type(),    $svc_typ, "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -63,11 +67,13 @@ SKIP: {
     $svc = Init::Service->new();    # make new object
     ok $svc, "Service object created for load";
     $svc->load($svc_nam);
+    @pre = $svc->prerun();
+    @pos = $svc->postrun();
     is $svc->error, q{}, "load() status";
     is $svc->name(),    $svc_nam, "  Name correct";
-    is $svc->prerun(),  $svc_pre, "  PreRun correct";
-    is $svc->run(),     $svc_run, "  Run correct";
-    is $svc->postrun(), $svc_pos, "  PostRun correct";
+    is_deeply \@pre,    [$svc_pre], "  PreRun correct";
+    is $svc->run(),     $svc_run,   "  Run correct";
+    is_deeply \@pos,    [$svc_pos], "  PostRun correct";
     is $svc->title(),   $svc_tit, "  Title correct";
     is $svc->type(),    $svc_typ, "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -85,11 +91,13 @@ SKIP: {
     $svc = Init::Service->new();    # make new object
     ok $svc, "New object to check above";
     $svc->load($svc_nam);
+    @pre = $svc->prerun();
+    @pos = $svc->postrun();
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam, "  Name correct";
-    is $svc->prerun(),  $svc_pre, "  PreRun correct";
-    is $svc->run(),     $svc_run, "  Run correct";
-    is $svc->postrun(), $svc_pos, "  PostRun correct";
+    is_deeply \@pre,    [$svc_pre], "  PreRun correct";
+    is $svc->run(),     $svc_run,   "  Run correct";
+    is_deeply \@pos,    [$svc_pos], "  PostRun correct";
     is $svc->title(),   $svc_tit, "  Title correct";
     is $svc->type(),    $svc_typ, "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -107,11 +115,13 @@ SKIP: {
     $svc = Init::Service->new();    # make new object
     ok $svc, "New object to check above";
     $svc->load($svc_nam);
+    @pre = $svc->prerun();
+    @pos = $svc->postrun();
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam, "  Name correct";
-    is $svc->prerun(),  $svc_pre, "  PreRun correct";
-    is $svc->run(),     $svc_run, "  Run correct";
-    is $svc->postrun(), $svc_pos, "  PostRun correct";
+    is_deeply \@pre,    [$svc_pre], "  PreRun correct";
+    is $svc->run(),     $svc_run,   "  Run correct";
+    is_deeply \@pos,    [$svc_pos], "  PostRun correct";
     is $svc->title(),   $svc_tit, "  Title correct";
     is $svc->type(),    $svc_typ, "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -129,11 +139,13 @@ SKIP: {
     $svc = Init::Service->new();    # make new object
     ok $svc, "New object to check above";
     $svc->load($svc_nam);
+    @pre = $svc->prerun();
+    @pos = $svc->postrun();
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam, "  Name correct";
-    is $svc->prerun(),  $svc_pre, "  PreRun correct";
-    is $svc->run(),     $svc_run, "  Run correct";
-    is $svc->postrun(), $svc_pos, "  PostRun correct";
+    is_deeply \@pre,    [$svc_pre], "  PreRun correct";
+    is $svc->run(),     $svc_run,   "  Run correct";
+    is_deeply \@pos,    [$svc_pos], "  PostRun correct";
     is $svc->title(),   $svc_tit, "  Title correct";
     is $svc->type(),    $svc_typ, "  Type correct";
     ok $svc->running(),  "  Is running";
@@ -157,12 +169,14 @@ SKIP: {
     $svc = Init::Service->new();    # make new object
     ok $svc, "New object to check above";
     $svc->load($svc_nam);
+    @pre = $svc->prerun();
+    @pos = $svc->postrun();
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam, "  Name correct";
-    is $svc->prerun(),  $svc_pre, "  PreRun correct";
-    is $svc->run(),     $svc_run, "  Run correct";
+    is_deeply \@pre,    [$svc_pre], "  PreRun correct";
+    is $svc->run(),     $svc_run,   "  Run correct";
+    is_deeply \@pos,    [$svc_pos], "  PostRun correct";
     is $svc->title(),   $svc_tit, "  Title correct";
-    is $svc->postrun(), $svc_pos, "  PostRun correct";
     is $svc->type(),    $svc_typ, "  Type correct";
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled for boot";
@@ -173,11 +187,13 @@ SKIP: {
     $svc = Init::Service->new();    # make new object
     ok $svc, "Service object created for remove";
     $svc->remove($svc_nam);
+    @pre = $svc->prerun();
+    @pos = $svc->postrun();
     is $svc->error, q{}, "remove() status";
     is $svc->name(),    q{}, "  Name empty";
-    is $svc->prerun(),  q{}, "  PreRun empty";
+    is scalar(@pre),    0,   "  PreRun empty";
     is $svc->run(),     q{}, "  Run empty";
-    is $svc->postrun(), q{}, "  PostRun empty";
+    is scalar(@pos),    0,   "  PostRun empty";
     is $svc->title(),   q{}, "  Title empty";
     is $svc->type(),    q{}, "  Type empty";
     ok !$svc->running(), "  Not running";

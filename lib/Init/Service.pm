@@ -36,9 +36,9 @@ use constant OPTS_NEW => {
     root    => 0,
     title   => 0,
     type    => \&_ok_type,
-    prerun  => 0,
+    prerun  => \&_ok_cmdlist,
     run     => 0,
-    postrun => 0,
+    postrun => \&_ok_cmdlist,
     enable  => 0,
     start   => 0,
 };
@@ -48,9 +48,9 @@ use constant OPTS_ADD => {
     root    => 0,
     title   => 0,
     type    => \&_ok_type,
-    prerun  => 0,
+    prerun  => \&_ok_cmdlist,
     run     => 0,
-    postrun => 0,
+    postrun => \&_ok_cmdlist,
     enable  => 0,
     start   => 0,
     force   => 0,
@@ -98,9 +98,9 @@ sub new {
         name     => q{},                  # Service name
         title    => q{},                  # Service description or title
         type     => q{},                  # Service type normal, fork, ...
-        prerun   => q{},                  # pre-Command executable and arguments
+        prerun   => [],                   # pre-Commands; executable and arguments
         run      => q{},                  # Command executable and arguments
-        postrun  => q{},                  # post-Command executable and arguments
+        postrun  => [],                   # post-Commands; executable and arguments
         on_boot  => 0,                    # Will start on boot
         started  => 0,                    # Running now
     };
@@ -122,25 +122,6 @@ sub new {
     $this->start()  if !$this->error && $opts{name} && $opts{start};
 
     return $this;
-}
-
-# Add if list:
-#   Helper, use like  $a = _tolist($a, $v);
-#   If $a is blank, assign $v to it
-#   If $a is a string, convert $a to a listref of original $a and $v
-#   Else if $a is a listref push $v onto it
-sub _tolist {
-    my ($a, $v) = @_;
-    if (!$a) {
-        $a = $v;
-    }
-    elsif (!ref($a)) {
-        $a = [$a, $v];
-    }
-    else {
-        push @$a, $v;
-    }
-    return $a;
 }
 
 # Check options:
@@ -212,6 +193,12 @@ sub _deduce_initsys {
 }
 
 # Value cleaners & checkers
+sub _ok_cmdlist {
+    my $vp = shift;
+    $$vp = [$$vp] unless ref($$vp);
+    return ERR_OK;
+}
+
 sub _ok_initsys {
     my $vp = shift;
     $$vp =~ s{^\s*(.+?)\s*}{$1};    # trim
@@ -247,9 +234,9 @@ sub _ok_type {
 }
 
 # Accessors
-sub prerun   {return shift->{prerun};}
+sub prerun   {return @{shift->{prerun}};}
 sub run      {return shift->{run};}
-sub postrun  {return shift->{postrun};}
+sub postrun  {return @{shift->{postrun}};}
 sub error    {return shift->{err};}
 sub initfile {return shift->{initfile};}
 sub initsys  {return shift->{initsys};}
@@ -306,21 +293,11 @@ sub add {
 
     print UF "\n";
     print UF "[Service]\n";
-    if (ref $pre) {
-        foreach my $cmd (@$pre) {
-            print UF "ExecStartPre=$cmd\n";
-        }
-    }
-    elsif ($pre) {
-        print UF "ExecStartPre=$pre\n";
+    foreach my $cmd (@$pre) {
+        print UF "ExecStartPre=$cmd\n";
     }
     print UF "ExecStart=$run\n";
-    if (ref $post) {
-        foreach my $cmd (@$post) {
-            print UF "ExecStartPost=$post\n";
-        }
-    }
-    elsif ($post) {
+    foreach my $cmd (@$post) {
         print UF "ExecStartPost=$post\n";
     }
     print UF "Type=$type\n";
@@ -386,9 +363,9 @@ sub load {
     $this->{name}     = $name;
     $this->{title}    = q{};
     $this->{type}     = 'simple';
-    $this->{prerun}   = q{};
+    $this->{prerun}   = [];
     $this->{run}      = q{};
-    $this->{postrun}  = q{};
+    $this->{postrun}  = [];
     $this->{running}  = 0;
     $this->{on_boot}  = 0;
     $this->{initfile} = "$this->{root}/lib/systemd/system/$name.service";
@@ -401,21 +378,19 @@ sub load {
         $loadstate = $v if $k eq 'LoadState';
         if ($k eq 'ExecStartPre') {
             $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
-            $this->{prerun} = Init::Service::_tolist($this->{prerun}, $v);
+            push @{$this->{prerun}}, $v;
         }
         if ($k eq 'ExecStart') {
 
             # Our 'run' can be only a single command; if we get several,
             # push the prior back to the pre-run
-            if ($this->{run}) {
-                $this->{prerun} = Init::Service::_tolist($this->{prerun}, $this->{run});
-            }
+            push @{$this->{prerun}}, $this->{run};
             $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
             $this->{run} = $v;
         }
         if ($k eq 'ExecStartPost') {
             $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
-            $this->{postrun} = Init::Service::_tolist($this->{postrun}, $v);
+            push @{$this->{postrun}}, $v;
         }
         $this->{type}  = $v if $k eq 'Type';
         $this->{title} = $v if $k eq 'Description';
@@ -447,9 +422,9 @@ sub remove {
 
     # Clear all
     $this->{name}     = q{};
-    $this->{prerun}   = q{};
+    $this->{prerun}   = [];
     $this->{run}      = q{};
-    $this->{postrun}  = q{};
+    $this->{postrun}  = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
     $this->{initfile} = q{};
@@ -514,18 +489,17 @@ sub add {
         or return $this->{err} = "Cannot create init file $initfile: $!";
     print UF "# upstart init script for the $name service\n";
     print UF "description  \"$title\"\n";
-    if (ref $pre) {
-        print UF "pre-start script\n";
-        foreach my $cmd (@$pre) {
-            print UF "$cmd\n";
-        }
-        print UF "end script\n";
+    print UF "pre-start script\n" if @$pre;
+    foreach my $cmd (@$pre) {
+        print UF "    $cmd\n";
     }
-    elsif ($pre) {
-        print UF "pre-start exec $pre\n";
-    }
+    print UF "end script\n" if @$pre;
     print UF "exec $run\n";
-    print UF "post-start exec $post\n" if $post;
+    print UF "post-start script\n" if @$post;
+    foreach my $cmd (@$post) {
+        print UF "    $cmd\n";
+    }
+    print UF "end script\n" if @$post;
     print UF "expect fork\n"           if $type eq "BLAHBLAHTBD";    # TODO what to use here?
     print UF "expect daemon\n"         if $type eq "forking";
     print UF "expect stop\n"           if $type eq "notify";
@@ -613,9 +587,9 @@ sub load {
     $this->{name}    = $name;
     $this->{title}   = q{};
     $this->{type}    = 'simple';
-    $this->{prerun}  = q{};
+    $this->{prerun}  = [];
     $this->{run}     = q{};
-    $this->{postrun} = q{};
+    $this->{postrun} = [];
     $this->{running} = 0;
     $this->{on_boot} = 0;
 
@@ -626,32 +600,47 @@ sub load {
     my $inpre  = 0;
     my $inpost = 0;
     while (my $line = <UF>) {
+        if ($line =~ m{^\s*pre-start\s+exec\s+(.+)$}i) {
+            push @{$this->{prerun}}, $1;
+            next;
+        }
+        if ($line =~ m{^\s*pre-start\s+script\s*$}i) {
+            $inpre = 1;
+            next;
+        }
         if ($inpre) {
             if ($line =~ m{^\s*end\s+script\s*$}i) {
                 $inpre = 0;
             }
             else {
                 chomp $line;
-                $this->{prerun} = Init::Service::_tolist($this->{prerun}, $line);
+                $line =~ s{^\s{4}}{};
+                push @{$this->{prerun}}, $line;
             }
             next;
         }
-        $inpre = 1 if $line =~ m{^\s*pre-start\s+script\s*$}i;
+        if ($line =~ m{^\s*post-start\s+exec\s+(.+)$}i) {
+            push @{$this->{postrun}}, $1;
+            next;
+        }
+        if ($line =~ m{^\s*post-start\s+script\s*$}i) {
+            $inpost = 1;
+            next;
+        }
         if ($inpost) {
             if ($line =~ m{^\s*end\s+script\s*$}i) {
                 $inpost = 0;
             }
             else {
                 chomp $line;
-                $this->{postrun} = Init::Service::_tolist($this->{postrun}, $line);
+                $line =~ s{^\s{4}}{};
+                push @{$this->{postrun}}, $line;
             }
             next;
         }
-        $inpost          = 1         if $line =~ m{^\s*post-start\s+script\s*$}i;
         $this->{title}   = $1        if $line =~ m{^\s*description\s+"?(.+?)"?\s*$}i;
         $this->{type}    = 'forking' if $line =~ m{^\s*expect\s+daemon\b}i;
         $this->{type}    = 'notify'  if $line =~ m{^\s*expect\s+stop\b}i;
-        $this->{prerun}  = $1        if $line =~ m{^\s*pre-start\s+exec\s+(.+)$}i;
         $this->{run}     = $1        if $line =~ m{^\s*exec\s+(.+)$}i;
         $this->{postrun} = $1        if $line =~ m{^\s*post-start\s+exec\s+(.+)$}i;
         $this->{on_boot} = 1         if $line =~ m{^\s*start\s+on\b}i;
@@ -692,9 +681,9 @@ sub remove {
 
     # Clear all
     $this->{name}     = q{};
-    $this->{prerun}   = q{};
+    $this->{prerun}   = [];
     $this->{run}      = q{};
-    $this->{postrun}  = q{};
+    $this->{postrun}  = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
     $this->{initfile} = q{};
@@ -755,18 +744,20 @@ sub add {
     my ($daemon, $opts) = $run =~ m/^\s*(\S+)\s+(.+)$/;
     my $bgflag = ($type eq "simple") || ($type eq "notify") ? "--background" : q{};
 
-    if ($pre) {
-        $pre
+    my $prechunk = q{};
+    if (@$pre) {
+        $prechunk
             = "\n    log_daemon_msg \"Pre-Start  $title\" \"$name\" || true"
             . "\n    "
-            . join("    \n", ref $pre ? @$pre : ($pre))
+            . join("    \n", @$pre)
             . "\n    log_end_msg 0 || true";
     }
-    if ($post) {
-        $post
+    my $postchunk = q{};
+    if (@$post) {
+        $postchunk
             = "\n    log_daemon_msg \"Post-Start $title\" \"$name\" || true"
             . "\n    "
-            . join("    \n", ref $post ? @$post : ($post))
+            . join("    \n", @$post)
             . "\n    log_end_msg 0 || true";
     }
 
@@ -826,7 +817,7 @@ fi
 
 case "\$1" in
   start)
-    # BEGIN PRE-START$pre
+    # BEGIN PRE-START$prechunk
     # END PRE-START
     log_daemon_msg "Starting   $title" "\$NAME" || true
     if start-stop-daemon --start --quiet --oknodo --pidfile \$PID_FILE $bgflag --exec \$DAEMON -- \$DOPTS; then
@@ -834,7 +825,7 @@ case "\$1" in
     else
         log_end_msg 1 || true
     fi
-    # BEGIN POST-START$post
+    # BEGIN POST-START$postchunk
     # END POST-START
     ;;
 
@@ -961,9 +952,9 @@ sub load {
     $this->{name}    = $name;
     $this->{title}   = q{};
     $this->{type}    = 'simple';
-    $this->{prerun}  = q{};
+    $this->{prerun}  = [];
     $this->{run}     = q{};
-    $this->{postrun} = q{};
+    $this->{postrun} = [];
     $this->{running} = 0;
     $this->{on_boot} = 0;
 
@@ -977,6 +968,10 @@ sub load {
     my $dopts  = q{};
     while (my $line = <UF>) {
 
+        if ($line =~ m{^\s*#\s*BEGIN\s+PRE-START\s*$}i) {
+            $inpre = 1;
+            next;
+        }
         if ($inpre) {
             if ($line =~ m{^\s*#\s*END\s+PRE-START\s*$}i) {
                 $inpre = 0;
@@ -984,11 +979,14 @@ sub load {
             else {
                 chomp $line;
                 $line =~ s{^\s{4}}{};
-                $this->{prerun} = Init::Service::_tolist($this->{prerun}, $line);
+                push @{$this->{prerun}}, $line;
             }
             next;
         }
-        $inpre = 1 if $line =~ m{^\s*#\s*BEGIN\s+PRE-START\s*$}i;
+        if ($line =~ m{^\s*#\s*BEGIN\s+POST-START\s*$}i) {
+            $inpost = 1;
+            next;
+        }
         if ($inpost) {
             if ($line =~ m{^\s*#\s*END\s+POST\s+START\s*$}i) {
                 $inpost = 0;
@@ -996,11 +994,10 @@ sub load {
             else {
                 chomp $line;
                 $line =~ s{^\s{4}}{};
-                $this->{postrun} = Init::Service::_tolist($this->{postrun}, $line);
+                push @{$this->{postrun}}, $line;
             }
             next;
         }
-        $inpost        = 1  if $line =~ m{^\s*#\s*BEGIN\s+POST-START\s*$}i;
         $this->{title} = $1 if $line =~ m{^\s*#\s*short-description:\s+(.+?)\s*$}i;
         $this->{type}  = $1 if $line =~ m{^\s*TYPE=\s*(.+?)\s*$};
         $dopts         = $1 if $line =~ m{^\s*DOPTS=\s*(.+?)\s*$};
@@ -1010,25 +1007,19 @@ sub load {
     $this->{run} = "$daemon $dopts";
 
     # Trim log message begin's & end's that we added when created
-    if (   ref($this->{prerun})
-        && (@{$this->{prerun}} >= 2)
+    if (   (@{$this->{prerun}} >= 2)
         && ($this->{prerun}->[0] =~ m{^\s+log_daemon_msg\s})
         && ($this->{prerun}->[-1] =~ m{^\s+log_end_msg\s}))
     {
         shift @{$this->{prerun}};    # Remove first
         pop   @{$this->{prerun}};    # Remove last
-        $this->{prerun} = q{} if !@{$this->{prerun}};
-        $this->{prerun} = $this->{prerun}->[0] if @{$this->{prerun}} == 1;
     }
-    if (   ref($this->{postrun})
-        && (@{$this->{postrun}} >= 2)
+    if (   (@{$this->{postrun}} >= 2)
         && ($this->{postrun}->[0] =~ m{^\s+log_daemon_msg\s})
         && ($this->{postrun}->[-1] =~ m{^\s+log_end_msg\s}))
     {
         shift @{$this->{postrun}};    # Remove first
         pop   @{$this->{postrun}};    # Remove last
-        $this->{postrun} = q{} if !@{$this->{postrun}};
-        $this->{postrun} = $this->{postrun}->[0] if @{$this->{postrun}} == 1;
     }
 
     # Run the init's status to see if it's running
@@ -1091,9 +1082,9 @@ sub remove {
 
     # Clear all
     $this->{name}     = q{};
-    $this->{prerun}   = q{};
+    $this->{prerun}   = [];
     $this->{run}      = q{};
-    $this->{postrun}  = q{};
+    $this->{postrun}  = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
     $this->{initfile} = q{};
@@ -1221,30 +1212,30 @@ Remember to check the object for an error after creating it.
 
 =head2 C<prerun>
 
-Returns the pre-run command(s) defined for the service.
+Returns a LIST of the pre-run command(s) defined for the service.
 For systemd, this is I<ExecStartPre>.
-For upstart, this is I<pre-start exec>.
+For upstart, this is I<pre-start exec> or the I<pre-start script> section.
 For SysVinit, these are pre-commands within the /etc/init.d script.
-Multiple commands may exist; call this in list context to get them all.
+Remember to call this in list context!
 
 =head2 C<run>
 
-Returns the run command(s) defined for the service.
+Returns the run command defined for the service.
 For systemd, this is I<ExecStart>.
 For upstart, this is I<exec>.
-For SysVinit, these are the main commands within the /etc/init.d script.
-Multiple commands may exist; call this in list context to get them all.
+For SysVinit, these is the one main daemon command within the /etc/init.d script.
+This always returns a single command string; call this in scalar context.
 
 Note - this does not 'run' the service now; it's just an accessor to
 return what's defined to be run.  To start the service now, use C<start()>.
 
 =head2 C<postrun>
 
-Returns the post-run command(s) defined for the service.
+Returns a LIST of the post-run command(s) defined for the service.
 For systemd, this is I<ExecStartPost>.
-For upstart, this is I<post-start exec>.
+For upstart, this is I<post-start exec> or the I<post-start script> section.
 For SysVinit, these are the post-commands within the /etc/init.d script.
-Multiple commands may exist; call this in list context to get them all.
+Remember to call this in list context!
 
 =head2 C<enabled>
 
