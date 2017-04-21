@@ -298,7 +298,7 @@ sub add {
     }
     print UF "ExecStart=$run\n";
     foreach my $cmd (@$post) {
-        print UF "ExecStartPost=$post\n";
+        print UF "ExecStartPost=$cmd\n";
     }
     print UF "Type=$type\n";
 
@@ -375,27 +375,34 @@ sub load {
     foreach my $line (@lines) {
         chomp $line;
         my ($k, $v) = split(/=/, $line, 2);
-        $loadstate = $v if $k eq 'LoadState';
+        if ($k eq 'LoadState') {
+            $loadstate = $v;
+            next;
+        }
         if ($k eq 'ExecStartPre') {
             $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
             push @{$this->{prerun}}, $v;
+            next;
         }
         if ($k eq 'ExecStart') {
 
             # Our 'run' can be only a single command; if we get several,
             # push the prior back to the pre-run
-            push @{$this->{prerun}}, $this->{run};
+            push @{$this->{prerun}}, $this->{run} if $this->{run};
+
             $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
             $this->{run} = $v;
+            next;
         }
         if ($k eq 'ExecStartPost') {
             $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
             push @{$this->{postrun}}, $v;
+            next;
         }
-        $this->{type}  = $v if $k eq 'Type';
-        $this->{title} = $v if $k eq 'Description';
-        $this->{running} = 1 if ($k eq 'SubState')      && ($v =~ m/running/i);
-        $this->{on_boot} = 1 if ($k eq 'UnitFileState') && ($v =~ m/enabled/i);
+        $this->{type}    = $v if  $k eq 'Type';
+        $this->{title}   = $v if  $k eq 'Description';
+        $this->{running} = 1  if ($k eq 'SubState')      && ($v =~ m/running/i);
+        $this->{on_boot} = 1  if ($k eq 'UnitFileState') && ($v =~ m/enabled/i);
     }
     return $this->{err} = "No such service $name (LoadState=$loadstate)"
         if $loadstate !~ m/loaded/i;
@@ -499,10 +506,10 @@ sub add {
     foreach my $cmd (@$post) {
         print UF "    $cmd\n";
     }
-    print UF "end script\n" if @$post;
-    print UF "expect fork\n"           if $type eq "BLAHBLAHTBD";    # TODO what to use here?
-    print UF "expect daemon\n"         if $type eq "forking";
-    print UF "expect stop\n"           if $type eq "notify";
+    print UF "end script\n"    if @$post;
+    print UF "expect fork\n"   if $type eq "BLAHBLAHTBD";    # TODO what to use here?
+    print UF "expect daemon\n" if $type eq "forking";
+    print UF "expect stop\n"   if $type eq "notify";
     close UF;
     chmod 0644, $initfile
         or return $this->{err} = "Cannot chmod 644 file $initfile: $!";
@@ -1012,14 +1019,14 @@ sub load {
         && ($this->{prerun}->[-1] =~ m{^\s+log_end_msg\s}))
     {
         shift @{$this->{prerun}};    # Remove first
-        pop   @{$this->{prerun}};    # Remove last
+        pop @{$this->{prerun}};      # Remove last
     }
     if (   (@{$this->{postrun}} >= 2)
         && ($this->{postrun}->[0] =~ m{^\s+log_daemon_msg\s})
         && ($this->{postrun}->[-1] =~ m{^\s+log_end_msg\s}))
     {
         shift @{$this->{postrun}};    # Remove first
-        pop   @{$this->{postrun}};    # Remove last
+        pop @{$this->{postrun}};      # Remove last
     }
 
     # Run the init's status to see if it's running

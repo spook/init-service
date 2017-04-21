@@ -54,12 +54,12 @@ SKIP: {
     @pre = $svc->prerun();
     @pos = $svc->postrun();
     is $svc->error, q{}, "add() service status";
-    is $svc->name(),    $svc_nam, "  Name correct";
+    is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@pre,    [$svc_pre], "  PreRun correct";
     is $svc->run(),     $svc_run,   "  Run correct";
     is_deeply \@pos,    [$svc_pos], "  PostRun correct";
-    is $svc->title(),   $svc_tit, "  Title correct";
-    is $svc->type(),    $svc_typ, "  Type correct";
+    is $svc->title(),   $svc_tit,   "  Title correct";
+    is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled for boot";
 
@@ -70,12 +70,12 @@ SKIP: {
     @pre = $svc->prerun();
     @pos = $svc->postrun();
     is $svc->error, q{}, "load() status";
-    is $svc->name(),    $svc_nam, "  Name correct";
+    is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@pre,    [$svc_pre], "  PreRun correct";
     is $svc->run(),     $svc_run,   "  Run correct";
     is_deeply \@pos,    [$svc_pos], "  PostRun correct";
-    is $svc->title(),   $svc_tit, "  Title correct";
-    is $svc->type(),    $svc_typ, "  Type correct";
+    is $svc->title(),   $svc_tit,   "  Title correct";
+    is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled for boot";
 
@@ -94,12 +94,12 @@ SKIP: {
     @pre = $svc->prerun();
     @pos = $svc->postrun();
     is $svc->error, q{}, "re-load() status";
-    is $svc->name(),    $svc_nam, "  Name correct";
+    is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@pre,    [$svc_pre], "  PreRun correct";
     is $svc->run(),     $svc_run,   "  Run correct";
     is_deeply \@pos,    [$svc_pos], "  PostRun correct";
-    is $svc->title(),   $svc_tit, "  Title correct";
-    is $svc->type(),    $svc_typ, "  Type correct";
+    is $svc->title(),   $svc_tit,   "  Title correct";
+    is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
     ok $svc->enabled(),  "  Is enabled for boot";
 
@@ -118,12 +118,12 @@ SKIP: {
     @pre = $svc->prerun();
     @pos = $svc->postrun();
     is $svc->error, q{}, "re-load() status";
-    is $svc->name(),    $svc_nam, "  Name correct";
+    is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@pre,    [$svc_pre], "  PreRun correct";
     is $svc->run(),     $svc_run,   "  Run correct";
     is_deeply \@pos,    [$svc_pos], "  PostRun correct";
-    is $svc->title(),   $svc_tit, "  Title correct";
-    is $svc->type(),    $svc_typ, "  Type correct";
+    is $svc->title(),   $svc_tit,   "  Title correct";
+    is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled for boot";
 
@@ -142,12 +142,12 @@ SKIP: {
     @pre = $svc->prerun();
     @pos = $svc->postrun();
     is $svc->error, q{}, "re-load() status";
-    is $svc->name(),    $svc_nam, "  Name correct";
+    is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@pre,    [$svc_pre], "  PreRun correct";
     is $svc->run(),     $svc_run,   "  Run correct";
     is_deeply \@pos,    [$svc_pos], "  PostRun correct";
-    is $svc->title(),   $svc_tit, "  Title correct";
-    is $svc->type(),    $svc_typ, "  Type correct";
+    is $svc->title(),   $svc_tit,   "  Title correct";
+    is $svc->type(),    $svc_typ,   "  Type correct";
     ok $svc->running(),  "  Is running";
     ok !$svc->enabled(), "  Not enabled for boot";
 
@@ -172,12 +172,12 @@ SKIP: {
     @pre = $svc->prerun();
     @pos = $svc->postrun();
     is $svc->error, q{}, "re-load() status";
-    is $svc->name(),    $svc_nam, "  Name correct";
+    is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@pre,    [$svc_pre], "  PreRun correct";
     is $svc->run(),     $svc_run,   "  Run correct";
     is_deeply \@pos,    [$svc_pos], "  PostRun correct";
-    is $svc->title(),   $svc_tit, "  Title correct";
-    is $svc->type(),    $svc_typ, "  Type correct";
+    is $svc->title(),   $svc_tit,   "  Title correct";
+    is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled for boot";
 
