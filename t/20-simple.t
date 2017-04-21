@@ -29,7 +29,7 @@ SKIP: {
     print D "echo \$\$ > /var/run/$svc_nam.pid\n";
     print D "sleep 1\n";
     print D "echo Got \$*\n";
-    print D "sleep 5\n";
+    print D "sleep 28\n";
     print D "rm /var/run/$svc_nam.pid\n";
     print D "exit 0\n";
     close D;
@@ -155,7 +155,7 @@ SKIP: {
     sleep 1;    # give it time to start, if system is busy
     my $out
         = qx(ps --no-header wax | /bin/grep -v grep | /bin/grep '$svc_run' 2>&1);
-    isnt $out, q{}, " Service found on system";
+    isnt $out, q{}, "  Service found on system";
 
     # Stop it
     diag "";

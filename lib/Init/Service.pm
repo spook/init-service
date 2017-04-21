@@ -514,9 +514,6 @@ sub add {
     chmod 0644, $initfile
         or return $this->{err} = "Cannot chmod 644 file $initfile: $!";
 
-    $this->{running} = 0;
-    $this->{on_boot} = 0;
-
     # Enabled or started on add?
     $this->{err}     = ERR_OK;
     $this->{type}    = $type;
@@ -749,7 +746,8 @@ sub add {
         if !$name || !$run;
 
     my ($daemon, $opts) = $run =~ m/^\s*(\S+)\s+(.+)$/;
-    my $bgflag = ($type eq "simple") || ($type eq "notify") ? "--background" : q{};
+    my $bgflag_ub = ($type eq "simple") || ($type eq "notify") ? "--background" : q{};
+    my $bgflag_rh = ($type eq "simple") || ($type eq "notify") ? "&"            : q{};
 
     my $prechunk = q{};
     if (@$pre) {
@@ -790,36 +788,41 @@ sub add {
 
 set -e
 umask 022
-if [ -f /etc/init.d/functions ] ; then
-    . /etc/init.d/functions
-elif [ -f /etc/rc.d/init.d/functions ] ; then
-    . /etc/rc.d/init.d/functions
-elif [ -f /lib/lsb/init-functions ]; then
-    . /lib/lsb/init-functions
-    function success() { log_success_msg "$@"; }
-    function failure() { log_failure_msg "$@"; }
-else
-    echo "*** Service functions not available" 1>&2
-    exit 5
-fi
 
 export PATH=$root/usr/local/sbin:$root/usr/local/bin:$root/sbin:$root/bin:$root/usr/sbin:$root/usr/bin
 TYPE=$type
 NAME=$name
 DOPTS="$opts"
 DAEMON=$daemon
+PID_FILE=$root/var/run/$name.pid
+LOG_FILE=$root/var/log/$name.log
 
-dist=`grep DISTRIB_ID /etc/*-release | awk -F '=' '{print \$2}'`
-PID_FILE="$root/var/run/$name.pid"
-
-if [ "\$dist" == "Ubuntu" ]; then
-    status_command="status_of_proc -p \$PID_FILE \$DAEMON \$NAME"
+# There's many variations of init.d script functions, figure out which we'll use
+if [ -f /etc/init.d/functions ] ; then
+    . /etc/init.d/functions
+    START_CMD="daemon --pidfile \$PID_FILE --check nohup \$DAEMON \$DOPTS </dev/null >\$LOG_FILE 2>&1 $bgflag_rh"
+    STOP_CMD="killproc $daemon"
+elif [ -f /etc/rc.d/init.d/functions ] ; then
+    . /etc/rc.d/init.d/functions
+    START_CMD="daemon --pidfile \$PID_FILE --check nohup \$DAEMON \$DOPTS </dev/null >\$LOG_FILE 2>&1 $bgflag_rh"
+    STOP_CMD="killproc $daemon"
+elif [ -f /lib/lsb/init-functions ]; then
+    . /lib/lsb/init-functions
+    START_CMD="start-stop-daemon --start --quiet --oknodo --pidfile \$PID_FILE $bgflag_ub --exec \$DAEMON -- \$DOPTS"
+    STOP_CMD="start-stop-daemon --stop --quiet --oknodo --pidfile \$PID_FILE"
 else
-    status_command="status -p \$PID_FILE \$NAME"
+    echo "*** init functions not available" 1>&2
+    exit 5
 fi
-if ! command -v \$status_command 2>/dev/null; then
-    # Hacky method for old o/s's
-    status_command="ps wax | grep -v grep | grep -q -1 '$daemon'"
+
+if command -v status_of_proc >/dev/null 2>&1; then
+    STATUS_CMD="status_of_proc -p \$PID_FILE \$DAEMON \$NAME"
+elif command -v status  >/dev/null 2>&1; then
+    STATUS_CMD="status -p \$PID_FILE \$NAME"
+else
+    # hacky method for old o/s's, doesn't always work :-(
+    function ckstat() { ps wax | grep -v grep | grep -q -1 $daemon ; }
+    STATUS_CMD=ckstat
 fi
 
 case "\$1" in
@@ -827,7 +830,7 @@ case "\$1" in
     # BEGIN PRE-START$prechunk
     # END PRE-START
     log_daemon_msg "Starting   $title" "\$NAME" || true
-    if start-stop-daemon --start --quiet --oknodo --pidfile \$PID_FILE $bgflag --exec \$DAEMON -- \$DOPTS; then
+    if \$START_CMD; then
         log_end_msg 0 || true
     else
         log_end_msg 1 || true
@@ -838,7 +841,7 @@ case "\$1" in
 
   stop)
     log_daemon_msg "Stopping $title" "\$NAME" || true
-    if start-stop-daemon --stop --quiet --oknodo --pidfile \$PID_FILE; then
+    if \$STOP_CMD; then
         log_end_msg 0 || true
     else
         log_end_msg 1 || true
@@ -860,8 +863,13 @@ case "\$1" in
     ;;
 
   status)
-    \$status_command
-    echo \$NAME is running
+    if \$STATUS_CMD; then
+        echo \$NAME is running
+        exit 0
+    else
+        echo \$NAME is stopped
+        exit 1
+    fi
     ;;
 
   *)
