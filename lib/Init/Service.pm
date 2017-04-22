@@ -36,9 +36,11 @@ use constant OPTS_NEW => {
     root    => 0,
     title   => 0,
     type    => \&_ok_type,
-    prerun  => \&_ok_cmdlist,
-    run     => 0,
-    postrun => \&_ok_cmdlist,
+    prerun  => \&_ok_cmdlist,   # runpre
+    run     => 0,               # runcmd
+    postrun => \&_ok_cmdlist,   # runaft
+    prestop => \&_ok_cmdlist,   # stoppre
+    poststop=> \&_ok_cmdlist,   # stopaft
     enable  => 0,
     start   => 0,
 };
@@ -800,19 +802,17 @@ LOG_FILE=$root/var/log/$name.log
 if [ -f /etc/init.d/functions ] ; then
     . /etc/init.d/functions
     START_CMD="daemon --pidfile \$PID_FILE --check nohup \$DAEMON \$DOPTS </dev/null >\$LOG_FILE 2>&1 $bgflag_rh"
-    STOP_CMD="killproc $daemon"
 elif [ -f /etc/rc.d/init.d/functions ] ; then
     . /etc/rc.d/init.d/functions
     START_CMD="daemon --pidfile \$PID_FILE --check nohup \$DAEMON \$DOPTS </dev/null >\$LOG_FILE 2>&1 $bgflag_rh"
-    STOP_CMD="killproc $daemon"
 elif [ -f /lib/lsb/init-functions ] ; then
     . /lib/lsb/init-functions
     START_CMD="start-stop-daemon --start --quiet --oknodo --pidfile \$PID_FILE $bgflag_ub --exec \$DAEMON -- \$DOPTS"
-    STOP_CMD="start-stop-daemon --stop --quiet --oknodo --pidfile \$PID_FILE"
 else
     echo "*** init functions not available" 1>&2
     exit 5
 fi
+STOP_CMD="killproc -p \$PID_FILE $daemon"
 
 if command -v status_of_proc >/dev/null 2>&1 ; then
     STATUS_CMD="status_of_proc -p \$PID_FILE \$DAEMON \$NAME"
