@@ -805,7 +805,7 @@ elif [ -f /etc/rc.d/init.d/functions ] ; then
     . /etc/rc.d/init.d/functions
     START_CMD="daemon --pidfile \$PID_FILE --check nohup \$DAEMON \$DOPTS </dev/null >\$LOG_FILE 2>&1 $bgflag_rh"
     STOP_CMD="killproc $daemon"
-elif [ -f /lib/lsb/init-functions ]; then
+elif [ -f /lib/lsb/init-functions ] ; then
     . /lib/lsb/init-functions
     START_CMD="start-stop-daemon --start --quiet --oknodo --pidfile \$PID_FILE $bgflag_ub --exec \$DAEMON -- \$DOPTS"
     STOP_CMD="start-stop-daemon --stop --quiet --oknodo --pidfile \$PID_FILE"
@@ -814,22 +814,22 @@ else
     exit 5
 fi
 
-if command -v status_of_proc >/dev/null 2>&1; then
+if command -v status_of_proc >/dev/null 2>&1 ; then
     STATUS_CMD="status_of_proc -p \$PID_FILE \$DAEMON \$NAME"
-elif command -v status  >/dev/null 2>&1; then
+elif command -v status  >/dev/null 2>&1 ; then
     STATUS_CMD="status -p \$PID_FILE \$NAME"
 else
     # hacky method for old o/s's, doesn't always work :-(
-    function ckstat() { ps wax | grep -v grep | grep -q -1 $daemon ; }
+    ckstat() { ps wax | grep -v grep | grep -q -1 $daemon ; }
     STATUS_CMD=ckstat
 fi
 
-if ! command -v log_daemon_msg >/dev/null 2>&1; then
-    function log_action_msg() { echo "--- " \$*; }
-    function log_daemon_msg() { echo "--- " \$*; }
-    function log_end_msg() { 
+if ! command -v log_daemon_msg >/dev/null 2>&1 ; then
+    log_action_msg() { echo "--- " \$*; }
+    log_daemon_msg() { echo "--- " \$*; }
+    log_end_msg() { 
         RET=\$1; 
-        if [ \$1 -eq 0 ]; then
+        if [ \$1 -eq 0 ] ; then
             echo "--- Success"
         else
             echo "*** Failed"
@@ -846,7 +846,7 @@ case "\$1" in
     # BEGIN PRE-START$prechunk
     # END PRE-START
     log_daemon_msg "Starting   $title" "\$NAME" || true
-    if \$START_CMD; then
+    if \$START_CMD ; then
         log_end_msg 0 || true
     else
         log_end_msg 1 || true
@@ -866,7 +866,7 @@ case "\$1" in
 
   reload)
     log_daemon_msg "Reloading $title" "\$NAME" || true
-    if start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile \$PID_FILE --exec \$DAEMON; then
+    if start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile \$PID_FILE --exec \$DAEMON ; then
         log_end_msg 0 || true
     else
         log_end_msg 1 || true
@@ -874,12 +874,12 @@ case "\$1" in
     ;;
 
   restart)
-    $0 stop
-    $0 start
+    \$0 stop
+    \$0 start
     ;;
 
   status)
-    if \$STATUS_CMD 1>/dev/null 2>&1; then
+    if \$STATUS_CMD 1>/dev/null 2>&1 ; then
         echo \$NAME is running
         exit 0
     else
@@ -1089,32 +1089,34 @@ sub remove {
     return $this->{err} if $this->{err};
     return $this->{err} = "Missing service name" unless $this->{name};
     my $name = $this->{name};
+    my $initfile = "$this->{root}/etc/init.d/$name";
+    return $this->{err} = "No such service $name"
+        if !-e $initfile && !$opts{force};
 
     # If we're removing it, we must first insure its stopped and disabled
     $this->stop();    #ignore errors except...? XXX
     $this->disable();
 
-    # Remove links: update-rc.d remove ...
-    my $cmdurc = "$this->{root}/usr/sbin/update-rc.d";
-    my $cmdchk = "$this->{root}/sbin/chkconfig";
+    # Remove links & script
+    my $cmdurc   = "$this->{root}/usr/sbin/update-rc.d";
+    my $cmdchk   = "$this->{root}/sbin/chkconfig";
     if (-x $cmdurc) {
+        # update-rc.d : script goes first then links
+        my $n = unlink $initfile;
+        return $this->{err} = "Cannot remove service $name: $!" unless $n;
         my $out = qx($cmdurc $name remove 2>&1);
         return $this->{err} = "Cannot remove init links for $name: $!\n\t$out" if $?;
     }
     elsif (-x $cmdchk) {
+        # chkconfig : links go first then script
         my $out = qx($cmdchk --del $name 2>&1) || q{};
         return $this->{err} = "Cannot remove init links for $name: $!\n\t$out" if $?;
+        my $n = unlink $initfile;
+        return $this->{err} = "Cannot remove service $name: $!" unless $n;
     }
     else {
         return $this->{err} = "Cannot remove init links for $name: no update-rc.d nor chkconfig";
     }
-
-    # Remove script
-    my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
-    return $this->{err} = "No such service $name"
-        if !-e $initfile && !$opts{force};
-    my $n = unlink $initfile;
-    return $this->{err} = "Cannot remove service $name: $!" unless $n;
 
     # Clear all
     $this->{name}     = q{};
