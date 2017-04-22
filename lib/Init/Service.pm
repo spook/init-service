@@ -816,10 +816,7 @@ fi
 
 if command -v status_of_proc >/dev/null 2>&1 ; then
     STATUS_CMD="status_of_proc -p \$PID_FILE \$DAEMON \$NAME"
-elif command -v status  >/dev/null 2>&1 ; then
-    STATUS_CMD="status -p \$PID_FILE \$NAME"
 else
-    # hacky method for old o/s's, doesn't always work :-(
     ckstat() { ps wax | grep -v grep | grep -q -1 $daemon ; }
     STATUS_CMD=ckstat
 fi
