@@ -764,7 +764,7 @@ sub add {
         $prechunk
             = "\n    log_daemon_msg \"Pre-Start  $title\" \"$name\" || true"
             . "\n    "
-            . join("    \n", @$prerun)
+            . join("\n    ", @$prerun)
             . "\n    log_end_msg 0 || true";
     }
     my $postchunk = q{};
@@ -772,7 +772,7 @@ sub add {
         $postchunk
             = "\n    log_daemon_msg \"Post-Start $title\" \"$name\" || true"
             . "\n    "
-            . join("    \n", @$postrun)
+            . join("\n    ", @$postrun)
             . "\n    log_end_msg 0 || true";
     }
 
