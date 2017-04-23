@@ -5,26 +5,31 @@ use warnings;
 use Test::More;
 use Init::Service;
 
-plan tests => 85;
+my $NTESTS = 87;
+plan tests => $NTESTS;
 
 # All these tests require root (TODO: or an alternate file system root)
 SKIP: {
-    skip "*** These tests must be run as root", 85
+    skip "*** These tests must be run as root", $NTESTS
         if $>;
 
     # Make the daemon script
     diag "--- Create a dummy daemon ---";
-    my @pre;
+    my @prr;
+    my @por;
+    my @prs;
     my @pos;
     my $svc_nam = "test-020";
-    my $svc_pre = "/bin/true 1 2 3";
-    my $svc_exe = "/tmp/$svc_nam.sh";
-    my $svc_run = "$svc_exe a b c";
-    my $svc_pos = "/bin/true 99";
+    my $svc_prr = ["/bin/echo this is the prerun command", "/bin/true 1 2 3"];
+    my $svc_dmn = "/tmp/$svc_nam.sh";
+    my $svc_run = "$svc_dmn a b c";
+    my $svc_por = ["/bin/true 99", "/bin/echo almost done", "/bin/echo Ta da, I am done"];
+    my $svc_prs = ["/bin/echo prestop-one", "/bin/echo prestop-two"];
+    my $svc_pos = ["/bin/echo 't-minus 9'", "/bin/echo 't-minus 8'"];
     my $svc_tit = "Test service for Init::Service test #020";
     my $svc_typ = "simple";
-    open D, ">", $svc_exe
-        or die "*** Cannot create daemon script $svc_exe: $!";
+    open D, ">", $svc_dmn
+        or die "*** Cannot create daemon script $svc_dmn: $!";
     print D "#!/bin/sh\n";
     print D "echo \$\$ > /var/run/$svc_nam.pid\n";
     print D "sleep 1\n";
@@ -33,31 +38,35 @@ SKIP: {
     print D "rm /var/run/$svc_nam.pid\n";
     print D "exit 0\n";
     close D;
-    chmod 775, $svc_exe
-        or die "*** Cannot chmod() daemon script $svc_exe: $!";
+    chmod 775, $svc_dmn
+        or die "*** Cannot chmod() daemon script $svc_dmn: $!";
     ok 1, "Dummy daemon script created";
 
-    # Add & remove
+    # Add
     diag " ";
     diag "--- new() the dummy service ---";
     my $svc = Init::Service->new();
     ok $svc, "Service object created";
     is $svc->error, q{}, "  No error";
     $svc->add(
-        name    => $svc_nam,
-        type    => $svc_typ,
-        prerun  => $svc_pre,
-        runcmd  => $svc_run,
-        postrun => $svc_pos,
-        title   => $svc_tit
+        name     => $svc_nam,
+        type     => $svc_typ,
+        prerun   => $svc_prr,
+        runcmd   => $svc_run,
+        postrun  => $svc_por,
+        prestop  => $svc_prs,
+        poststop => $svc_pos,
+        title    => $svc_tit
     );
-    @pre = $svc->prerun();
-    @pos = $svc->postrun();
+    @prr = $svc->prerun();
+    @por = $svc->postrun();
+    @prs = $svc->prestop();
+    @pos = $svc->poststop();
     is $svc->error, q{}, "add() service status";
     is $svc->name(),    $svc_nam,   "  Name correct";
-    is_deeply \@pre,    [$svc_pre], "  PreRun correct";
+    is_deeply \@prr,    $svc_prr,   "  PreRun correct";
     is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
-    is_deeply \@pos,    [$svc_pos], "  PostRun correct";
+    is_deeply \@por,    $svc_por,   "  PostRun correct";
     is $svc->title(),   $svc_tit,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -67,13 +76,15 @@ SKIP: {
     $svc = Init::Service->new();    # make new object
     ok $svc, "Service object created for load";
     $svc->load($svc_nam);
-    @pre = $svc->prerun();
-    @pos = $svc->postrun();
+    @prr = $svc->prerun();
+    @por = $svc->postrun();
+    @prs = $svc->prestop();
+    @pos = $svc->poststop();
     is $svc->error, q{}, "load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
-    is_deeply \@pre,    [$svc_pre], "  PreRun correct";
+    is_deeply \@prr,    $svc_prr,   "  PreRun correct";
     is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
-    is_deeply \@pos,    [$svc_pos], "  PostRun correct";
+    is_deeply \@por,    $svc_por,   "  PostRun correct";
     is $svc->title(),   $svc_tit,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -91,13 +102,15 @@ SKIP: {
     $svc = Init::Service->new();    # make new object
     ok $svc, "New object to check above";
     $svc->load($svc_nam);
-    @pre = $svc->prerun();
-    @pos = $svc->postrun();
+    @prr = $svc->prerun();
+    @por = $svc->postrun();
+    @prs = $svc->prestop();
+    @pos = $svc->poststop();
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
-    is_deeply \@pre,    [$svc_pre], "  PreRun correct";
+    is_deeply \@prr,    $svc_prr,   "  PreRun correct";
     is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
-    is_deeply \@pos,    [$svc_pos], "  PostRun correct";
+    is_deeply \@por,    $svc_por,   "  PostRun correct";
     is $svc->title(),   $svc_tit,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -115,13 +128,15 @@ SKIP: {
     $svc = Init::Service->new();    # make new object
     ok $svc, "New object to check above";
     $svc->load($svc_nam);
-    @pre = $svc->prerun();
-    @pos = $svc->postrun();
+    @prr = $svc->prerun();
+    @por = $svc->postrun();
+    @prs = $svc->prestop();
+    @pos = $svc->poststop();
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
-    is_deeply \@pre,    [$svc_pre], "  PreRun correct";
+    is_deeply \@prr,    $svc_prr,   "  PreRun correct";
     is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
-    is_deeply \@pos,    [$svc_pos], "  PostRun correct";
+    is_deeply \@por,    $svc_por,   "  PostRun correct";
     is $svc->title(),   $svc_tit,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -139,13 +154,15 @@ SKIP: {
     $svc = Init::Service->new();    # make new object
     ok $svc, "New object to check above";
     $svc->load($svc_nam);
-    @pre = $svc->prerun();
-    @pos = $svc->postrun();
+    @prr = $svc->prerun();
+    @por = $svc->postrun();
+    @prs = $svc->prestop();
+    @pos = $svc->poststop();
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
-    is_deeply \@pre,    [$svc_pre], "  PreRun correct";
+    is_deeply \@prr,    $svc_prr,   "  PreRun correct";
     is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
-    is_deeply \@pos,    [$svc_pos], "  PostRun correct";
+    is_deeply \@por,    $svc_por,   "  PostRun correct";
     is $svc->title(),   $svc_tit,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
     ok $svc->running(),  "  Is running";
@@ -169,13 +186,15 @@ SKIP: {
     $svc = Init::Service->new();    # make new object
     ok $svc, "New object to check above";
     $svc->load($svc_nam);
-    @pre = $svc->prerun();
-    @pos = $svc->postrun();
+    @prr = $svc->prerun();
+    @por = $svc->postrun();
+    @prs = $svc->prestop();
+    @pos = $svc->poststop();
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
-    is_deeply \@pre,    [$svc_pre], "  PreRun correct";
+    is_deeply \@prr,    $svc_prr,   "  PreRun correct";
     is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
-    is_deeply \@pos,    [$svc_pos], "  PostRun correct";
+    is_deeply \@por,    $svc_por,   "  PostRun correct";
     is $svc->title(),   $svc_tit,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
@@ -187,20 +206,24 @@ SKIP: {
     $svc = Init::Service->new();    # make new object
     ok $svc, "Service object created for remove";
     $svc->remove($svc_nam);
-    @pre = $svc->prerun();
-    @pos = $svc->postrun();
+    @prr = $svc->prerun();
+    @por = $svc->postrun();
+    @prs = $svc->prestop();
+    @pos = $svc->poststop();
     is $svc->error, q{}, "remove() status";
     is $svc->name(),    q{}, "  Name empty";
-    is scalar(@pre),    0,   "  PreRun empty";
+    is scalar(@prr),    0,   "  PreRun empty";
     is $svc->runcmd(),  q{}, "  RunCmd empty";
-    is scalar(@pos),    0,   "  PostRun empty";
+    is scalar(@por),    0,   "  PostRun empty";
+    is scalar(@prs),    0,   "  PreStop empty";
+    is scalar(@pos),    0,   "  PostStop empty";
     is $svc->title(),   q{}, "  Title empty";
     is $svc->type(),    q{}, "  Type empty";
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled";
 
     # Remove dummy daemon
-    unlink $svc_exe;
+    unlink $svc_dmn;
 }
 
 exit 0;

@@ -30,34 +30,34 @@ my %ALIAS_LIST = (    # Don't do 'use constant' for this
 
 # Valid options for functions
 use constant OPTS_NEW => {
-    DEFAULT => "name",
-    name    => \&_ok_name,
-    useinit => \&_ok_initsys,
-    root    => 0,
-    title   => 0,
-    type    => \&_ok_type,
-    prerun  => \&_ok_cmdlist,   # runpre
-    runcmd  => 0,               # runcmd
-    postrun => \&_ok_cmdlist,   # runaft
-    prestop => \&_ok_cmdlist,   # stoppre
-    poststop=> \&_ok_cmdlist,   # stopaft
-    enable  => 0,
-    start   => 0,
+    DEFAULT  => "name",
+    name     => \&_ok_name,
+    useinit  => \&_ok_initsys,
+    root     => 0,
+    title    => 0,
+    type     => \&_ok_type,
+    prerun   => \&_ok_cmdlist,   # runpre
+    runcmd   => 0,               # runcmd
+    postrun  => \&_ok_cmdlist,   # runaft
+    prestop  => \&_ok_cmdlist,   # stoppre
+    poststop => \&_ok_cmdlist,   # stopaft
+    enable   => 0,
+    start    => 0,
 };
 use constant OPTS_ADD => {
-    DEFAULT => "name",
-    name    => \&_ok_name,
-    root    => 0,
-    title   => 0,
-    type    => \&_ok_type,
-    prerun  => \&_ok_cmdlist,
-    runcmd  => 0,
-    postrun => \&_ok_cmdlist,
-    prestop => \&_ok_cmdlist,   # stoppre
-    poststop=> \&_ok_cmdlist,   # stopaft
-    enable  => 0,
-    start   => 0,
-    force   => 0,
+    DEFAULT  => "name",
+    name     => \&_ok_name,
+    root     => 0,
+    title    => 0,
+    type     => \&_ok_type,
+    prerun   => \&_ok_cmdlist,
+    runcmd   => 0,
+    postrun  => \&_ok_cmdlist,
+    prestop  => \&_ok_cmdlist,   # stoppre
+    poststop => \&_ok_cmdlist,   # stopaft
+    enable   => 0,
+    start    => 0,
+    force    => 0,
 };
 use constant OPTS_ENA => {
     DEFAULT => "name",
@@ -105,6 +105,8 @@ sub new {
         prerun   => [],                   # pre-Commands; executable and arguments
         runcmd   => q{},                  # Command executable and arguments
         postrun  => [],                   # post-Commands; executable and arguments
+        prestop  => [],                   # pre-stop commands
+        poststop => [],                   # post-stop commands
         on_boot  => 0,                    # Will start on boot
         started  => 0,                    # Running now
     };
@@ -238,17 +240,19 @@ sub _ok_type {
 }
 
 # Accessors
-sub prerun   {return @{shift->{prerun}};}
-sub runcmd   {return shift->{runcmd};}
-sub postrun  {return @{shift->{postrun}};}
+sub enabled  {return shift->{on_boot};}
 sub error    {return shift->{err};}
 sub initfile {return shift->{initfile};}
 sub initsys  {return shift->{initsys};}
 sub name     {return shift->{name};}
+sub postrun  {return @{shift->{postrun}};}
+sub poststop {return @{shift->{poststop}};}
+sub prerun   {return @{shift->{prerun}};}
+sub prestop  {return @{shift->{prestop}};}
+sub runcmd   {return shift->{runcmd};}
+sub running  {return shift->{running};}
 sub title    {return shift->{title};}
 sub type     {return shift->{type};}
-sub enabled  {return shift->{on_boot};}
-sub running  {return shift->{running};}
 
 #       ------- o -------
 
@@ -276,12 +280,12 @@ sub add {
     my $this = shift;
     my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
     return $this->{err} if $this->{err};
-    my $name   = $this->{name};
-    my $title  = $this->{title};
-    my $type   = $this->{type} || "simple";
-    my $pre    = $this->{prerun};
-    my $runcmd = $this->{runcmd};
-    my $post   = $this->{postrun};
+    my $name    = $this->{name};
+    my $title   = $this->{title};
+    my $type    = $this->{type} || "simple";
+    my $prerun  = $this->{prerun};
+    my $runcmd  = $this->{runcmd};
+    my $postrun = $this->{postrun};
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
 
@@ -297,11 +301,11 @@ sub add {
 
     print UF "\n";
     print UF "[Service]\n";
-    foreach my $cmd (@$pre) {
+    foreach my $cmd (@$prerun) {
         print UF "ExecStartPre=$cmd\n";
     }
     print UF "ExecStart=$runcmd\n";
-    foreach my $cmd (@$post) {
+    foreach my $cmd (@$postrun) {
         print UF "ExecStartPost=$cmd\n";
     }
     print UF "Type=$type\n";
@@ -385,6 +389,7 @@ sub load {
         }
         if ($k eq 'ExecStartPre') {
             $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
+            next unless $v; # Cannot have blank commands here
             push @{$this->{prerun}}, $v;
             next;
         }
@@ -400,6 +405,7 @@ sub load {
         }
         if ($k eq 'ExecStartPost') {
             $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
+            next unless $v; # Cannot have blank commands here
             push @{$this->{postrun}}, $v;
             next;
         }
@@ -483,12 +489,12 @@ sub add {
     my $this = shift;
     my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
     return $this->{err} if $this->{err};
-    my $name   = $this->{name};
-    my $title  = $this->{title};
-    my $type   = $this->{type} || "simple";
-    my $pre    = $this->{prerun};
-    my $runcmd = $this->{runcmd};
-    my $post   = $this->{postrun};
+    my $name    = $this->{name};
+    my $title   = $this->{title};
+    my $type    = $this->{type} || "simple";
+    my $prerun  = $this->{prerun};
+    my $runcmd  = $this->{runcmd};
+    my $postrun = $this->{postrun};
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
 
@@ -500,17 +506,17 @@ sub add {
         or return $this->{err} = "Cannot create init file $initfile: $!";
     print UF "# upstart init script for the $name service\n";
     print UF "description  \"$title\"\n";
-    print UF "pre-start script\n" if @$pre;
-    foreach my $cmd (@$pre) {
+    print UF "pre-start script\n" if @$prerun;
+    foreach my $cmd (@$prerun) {
         print UF "    $cmd\n";
     }
-    print UF "end script\n" if @$pre;
+    print UF "end script\n" if @$prerun;
     print UF "exec $runcmd\n";
-    print UF "post-start script\n" if @$post;
-    foreach my $cmd (@$post) {
+    print UF "post-start script\n" if @$postrun;
+    foreach my $cmd (@$postrun) {
         print UF "    $cmd\n";
     }
-    print UF "end script\n"    if @$post;
+    print UF "end script\n"    if @$postrun;
     print UF "expect fork\n"   if $type eq "BLAHBLAHTBD";    # TODO what to use here?
     print UF "expect daemon\n" if $type eq "forking";
     print UF "expect stop\n"   if $type eq "notify";
@@ -739,13 +745,13 @@ sub add {
     my $this = shift;
     my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
     return $this->{err} if $this->{err};
-    my $root   = $this->{root} || q{};
-    my $name   = $this->{name};
-    my $title  = $this->{title};
-    my $type   = $this->{type} || "simple";
-    my $pre    = $this->{prerun};
-    my $runcmd = $this->{runcmd};
-    my $post   = $this->{postrun};
+    my $root    = $this->{root} || q{};
+    my $name    = $this->{name};
+    my $title   = $this->{title};
+    my $type    = $this->{type} || "simple";
+    my $prerun  = $this->{prerun};
+    my $runcmd  = $this->{runcmd};
+    my $postrun = $this->{postrun};
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
 
@@ -754,19 +760,19 @@ sub add {
     my $bgflag_rh = ($type eq "simple") || ($type eq "notify") ? "&"            : q{};
 
     my $prechunk = q{};
-    if (@$pre) {
+    if (@$prerun) {
         $prechunk
             = "\n    log_daemon_msg \"Pre-Start  $title\" \"$name\" || true"
             . "\n    "
-            . join("    \n", @$pre)
+            . join("    \n", @$prerun)
             . "\n    log_end_msg 0 || true";
     }
     my $postchunk = q{};
-    if (@$post) {
+    if (@$postrun) {
         $postchunk
             = "\n    log_daemon_msg \"Post-Start $title\" \"$name\" || true"
             . "\n    "
-            . join("    \n", @$post)
+            . join("    \n", @$postrun)
             . "\n    log_end_msg 0 || true";
     }
 
@@ -1367,7 +1373,7 @@ The service name must be a simple identifier, consisting only of alphanumeric ch
 dash "-", dot ".", underscore "_", colon ":", or the at-sign "@".
 The maximum length is 64 characters.
 
-The prerun, runcmd, and postrun commands must use absolute paths to the executable.
+The prerun, runcmd, and postrun commands MUST use absolute paths to the executable.
 Multiple commands can be specified for prerun and postrun -- but not C<runcmd> -- by passing an arrayref:
 
               prerun => ["/bin/foo-red -a 2",
