@@ -47,7 +47,7 @@ SKIP: {
         name    => $svc_nam,
         type    => $svc_typ,
         prerun  => $svc_pre,
-        run     => $svc_run,
+        runcmd  => $svc_run,
         postrun => $svc_pos,
         title   => $svc_tit
     );
@@ -56,7 +56,7 @@ SKIP: {
     is $svc->error, q{}, "add() service status";
     is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@pre,    [$svc_pre], "  PreRun correct";
-    is $svc->run(),     $svc_run,   "  Run correct";
+    is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
     is_deeply \@pos,    [$svc_pos], "  PostRun correct";
     is $svc->title(),   $svc_tit,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
@@ -72,7 +72,7 @@ SKIP: {
     is $svc->error, q{}, "load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@pre,    [$svc_pre], "  PreRun correct";
-    is $svc->run(),     $svc_run,   "  Run correct";
+    is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
     is_deeply \@pos,    [$svc_pos], "  PostRun correct";
     is $svc->title(),   $svc_tit,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
@@ -96,7 +96,7 @@ SKIP: {
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@pre,    [$svc_pre], "  PreRun correct";
-    is $svc->run(),     $svc_run,   "  Run correct";
+    is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
     is_deeply \@pos,    [$svc_pos], "  PostRun correct";
     is $svc->title(),   $svc_tit,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
@@ -120,7 +120,7 @@ SKIP: {
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@pre,    [$svc_pre], "  PreRun correct";
-    is $svc->run(),     $svc_run,   "  Run correct";
+    is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
     is_deeply \@pos,    [$svc_pos], "  PostRun correct";
     is $svc->title(),   $svc_tit,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
@@ -144,7 +144,7 @@ SKIP: {
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@pre,    [$svc_pre], "  PreRun correct";
-    is $svc->run(),     $svc_run,   "  Run correct";
+    is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
     is_deeply \@pos,    [$svc_pos], "  PostRun correct";
     is $svc->title(),   $svc_tit,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
@@ -174,7 +174,7 @@ SKIP: {
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@pre,    [$svc_pre], "  PreRun correct";
-    is $svc->run(),     $svc_run,   "  Run correct";
+    is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
     is_deeply \@pos,    [$svc_pos], "  PostRun correct";
     is $svc->title(),   $svc_tit,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
@@ -192,7 +192,7 @@ SKIP: {
     is $svc->error, q{}, "remove() status";
     is $svc->name(),    q{}, "  Name empty";
     is scalar(@pre),    0,   "  PreRun empty";
-    is $svc->run(),     q{}, "  Run empty";
+    is $svc->runcmd(),  q{}, "  RunCmd empty";
     is scalar(@pos),    0,   "  PostRun empty";
     is $svc->title(),   q{}, "  Title empty";
     is $svc->type(),    q{}, "  Type empty";

@@ -18,9 +18,9 @@ my %ALIAS_LIST = (    # Don't do 'use constant' for this
     "pre"           => "prerun",
     "pre-start"     => "prerun",
     "execstartpre"  => "prerun",
-    "command"       => "run",
-    "exec"          => "run",
-    "execstart"     => "run",
+    "command"       => "runcmd",
+    "exec"          => "runcmd",
+    "execstart"     => "runcmd",
     "post"          => "postrun",
     "post-start"    => "postrun",
     "execstartpost" => "postrun",
@@ -37,7 +37,7 @@ use constant OPTS_NEW => {
     title   => 0,
     type    => \&_ok_type,
     prerun  => \&_ok_cmdlist,   # runpre
-    run     => 0,               # runcmd
+    runcmd  => 0,               # runcmd
     postrun => \&_ok_cmdlist,   # runaft
     prestop => \&_ok_cmdlist,   # stoppre
     poststop=> \&_ok_cmdlist,   # stopaft
@@ -51,8 +51,10 @@ use constant OPTS_ADD => {
     title   => 0,
     type    => \&_ok_type,
     prerun  => \&_ok_cmdlist,
-    run     => 0,
+    runcmd  => 0,
     postrun => \&_ok_cmdlist,
+    prestop => \&_ok_cmdlist,   # stoppre
+    poststop=> \&_ok_cmdlist,   # stopaft
     enable  => 0,
     start   => 0,
     force   => 0,
@@ -101,7 +103,7 @@ sub new {
         title    => q{},                  # Service description or title
         type     => q{},                  # Service type normal, fork, ...
         prerun   => [],                   # pre-Commands; executable and arguments
-        run      => q{},                  # Command executable and arguments
+        runcmd   => q{},                  # Command executable and arguments
         postrun  => [],                   # post-Commands; executable and arguments
         on_boot  => 0,                    # Will start on boot
         started  => 0,                    # Running now
@@ -116,8 +118,8 @@ sub new {
     bless $this, $class;
 
     # Create or load on new
-    $this->add()  if $opts{name} && $opts{run};
-    $this->load() if $opts{name} && !$opts{run};
+    $this->add()  if $opts{name} && $opts{runcmd};
+    $this->load() if $opts{name} && !$opts{runcmd};
 
     # Enabled or started on new?
     $this->enable() if !$this->error && $opts{name} && $opts{enable};
@@ -237,7 +239,7 @@ sub _ok_type {
 
 # Accessors
 sub prerun   {return @{shift->{prerun}};}
-sub run      {return shift->{run};}
+sub runcmd   {return shift->{runcmd};}
 sub postrun  {return @{shift->{postrun}};}
 sub error    {return shift->{err};}
 sub initfile {return shift->{initfile};}
@@ -278,10 +280,10 @@ sub add {
     my $title = $this->{title};
     my $type  = $this->{type} || "simple";
     my $pre   = $this->{prerun};
-    my $run   = $this->{run};
+    my $runcmd   = $this->{runcmd};
     my $post  = $this->{postrun};
-    return $this->{err} = "Missing options; name and run required"
-        if !$name || !$run;
+    return $this->{err} = "Missing options; name and runcmd required"
+        if !$name || !$runcmd;
 
     # Create unit file
     my $initfile = $this->{initfile} = "$this->{root}/lib/systemd/system/$name.service";
@@ -298,7 +300,7 @@ sub add {
     foreach my $cmd (@$pre) {
         print UF "ExecStartPre=$cmd\n";
     }
-    print UF "ExecStart=$run\n";
+    print UF "ExecStart=$runcmd\n";
     foreach my $cmd (@$post) {
         print UF "ExecStartPost=$cmd\n";
     }
@@ -366,7 +368,7 @@ sub load {
     $this->{title}    = q{};
     $this->{type}     = 'simple';
     $this->{prerun}   = [];
-    $this->{run}      = q{};
+    $this->{runcmd}      = q{};
     $this->{postrun}  = [];
     $this->{running}  = 0;
     $this->{on_boot}  = 0;
@@ -388,12 +390,12 @@ sub load {
         }
         if ($k eq 'ExecStart') {
 
-            # Our 'run' can be only a single command; if we get several,
-            # push the prior back to the pre-run
-            push @{$this->{prerun}}, $this->{run} if $this->{run};
+            # Our 'runcmd' can be only a single command; if we get several,
+            # push the prior back to the prerun
+            push @{$this->{prerun}}, $this->{runcmd} if $this->{runcmd};
 
             $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
-            $this->{run} = $v;
+            $this->{runcmd} = $v;
             next;
         }
         if ($k eq 'ExecStartPost') {
@@ -432,7 +434,7 @@ sub remove {
     # Clear all
     $this->{name}     = q{};
     $this->{prerun}   = [];
-    $this->{run}      = q{};
+    $this->{runcmd}      = q{};
     $this->{postrun}  = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
@@ -485,10 +487,10 @@ sub add {
     my $title = $this->{title};
     my $type  = $this->{type} || "simple";
     my $pre   = $this->{prerun};
-    my $run   = $this->{run};
+    my $runcmd   = $this->{runcmd};
     my $post  = $this->{postrun};
-    return $this->{err} = "Missing options; name and run required"
-        if !$name || !$run;
+    return $this->{err} = "Missing options; name and runcmd required"
+        if !$name || !$runcmd;
 
     # Create conf file
     my $initfile = $this->{initfile} = "$this->{root}/etc/init/$name.conf";
@@ -503,7 +505,7 @@ sub add {
         print UF "    $cmd\n";
     }
     print UF "end script\n" if @$pre;
-    print UF "exec $run\n";
+    print UF "exec $runcmd\n";
     print UF "post-start script\n" if @$post;
     foreach my $cmd (@$post) {
         print UF "    $cmd\n";
@@ -594,7 +596,7 @@ sub load {
     $this->{title}   = q{};
     $this->{type}    = 'simple';
     $this->{prerun}  = [];
-    $this->{run}     = q{};
+    $this->{runcmd}     = q{};
     $this->{postrun} = [];
     $this->{running} = 0;
     $this->{on_boot} = 0;
@@ -647,7 +649,7 @@ sub load {
         $this->{title}   = $1        if $line =~ m{^\s*description\s+"?(.+?)"?\s*$}i;
         $this->{type}    = 'forking' if $line =~ m{^\s*expect\s+daemon\b}i;
         $this->{type}    = 'notify'  if $line =~ m{^\s*expect\s+stop\b}i;
-        $this->{run}     = $1        if $line =~ m{^\s*exec\s+(.+)$}i;
+        $this->{runcmd}     = $1        if $line =~ m{^\s*exec\s+(.+)$}i;
         $this->{postrun} = $1        if $line =~ m{^\s*post-start\s+exec\s+(.+)$}i;
         $this->{on_boot} = 1         if $line =~ m{^\s*start\s+on\b}i;
     }
@@ -688,7 +690,7 @@ sub remove {
     # Clear all
     $this->{name}     = q{};
     $this->{prerun}   = [];
-    $this->{run}      = q{};
+    $this->{runcmd}      = q{};
     $this->{postrun}  = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
@@ -742,12 +744,12 @@ sub add {
     my $title = $this->{title};
     my $type  = $this->{type} || "simple";
     my $pre   = $this->{prerun};
-    my $run   = $this->{run};
+    my $runcmd   = $this->{runcmd};
     my $post  = $this->{postrun};
-    return $this->{err} = "Missing options; name and run required"
-        if !$name || !$run;
+    return $this->{err} = "Missing options; name and runcmd required"
+        if !$name || !$runcmd;
 
-    my ($daemon, $opts) = $run =~ m/^\s*(\S+)\s+(.+)$/;
+    my ($daemon, $opts) = $runcmd =~ m/^\s*(\S+)\s+(.+)$/;
     my $bgflag_ub = ($type eq "simple") || ($type eq "notify") ? "--background" : q{};
     my $bgflag_rh = ($type eq "simple") || ($type eq "notify") ? "&"            : q{};
 
@@ -986,7 +988,7 @@ sub load {
     $this->{title}   = q{};
     $this->{type}    = 'simple';
     $this->{prerun}  = [];
-    $this->{run}     = q{};
+    $this->{runcmd}     = q{};
     $this->{postrun} = [];
     $this->{running} = 0;
     $this->{on_boot} = 0;
@@ -1037,7 +1039,7 @@ sub load {
         $daemon        = $1 if $line =~ m{^\s*DAEMON=\s*(.+?)\s*$};
     }
     close UF;
-    $this->{run} = "$daemon $dopts";
+    $this->{runcmd} = "$daemon $dopts";
 
     # Trim log message begin's & end's that we added when created
     if (   (@{$this->{prerun}} >= 2)
@@ -1118,7 +1120,7 @@ sub remove {
     # Clear all
     $this->{name}     = q{};
     $this->{prerun}   = [];
-    $this->{run}      = q{};
+    $this->{runcmd}      = q{};
     $this->{postrun}  = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
@@ -1195,13 +1197,13 @@ each of the corresponding init system's equivalent functionality.
     # Print service info
     say $svc->name;
     say $svc->type;
-    say $svc->run;
+    say $svc->runcmd;
     say $svc->enabled? "Enabled" : "Disabled";
     say $svc->running? "Running" : "Stopped";
 
     # Make new service known to the system (creates .service, .conf, or /etc/init.d file)
     $err = $svc->add(name => "foo-daemon",
-                     run  => "/usr/bin/foo-daemon -D -p1234");
+                     runcmd  => "/usr/bin/foo-daemon -D -p1234");
        # --or--
     $svc = Init::Service->new( ...same args...)
     if ($svc->error) { ... }
@@ -1230,14 +1232,14 @@ object, which can later be add()'d or load()'d.
     my $svc = new Init::Service();
     if ($svc->error) { ... }
 
-With at least both I<name> and I<run> passed, creates a new service on the system.
+With at least both I<name> and I<runcmd> passed, creates a new service on the system.
 This is the same as calling an empty new() then calling add() with those arguments.
 
     my $svc = new Init::Service(name => 'foo-daemon',
-                                  run  => '/usr/bin/foo-daemon -D -p1234');
+                                  runcmd  => '/usr/bin/foo-daemon -D -p1234');
     if ($svc->error) { ... }
 
-When called with I<name> but NOT I<run>, it will attempt to load() an existing service, if any.
+When called with I<name> but NOT I<runcmd>, it will attempt to load() an existing service, if any.
 
     my $svc = new Init::Service(name => 'foo-daemon');
     if ($svc->error) { ... }
@@ -1253,7 +1255,7 @@ For upstart, this is I<pre-start exec> or the I<pre-start script> section.
 For SysVinit, these are pre-commands within the /etc/init.d script.
 Remember to call this in list context!
 
-=head2 C<run>
+=head2 C<runcmd>
 
 Returns the run command defined for the service.
 For systemd, this is I<ExecStart>.
@@ -1347,12 +1349,12 @@ This funciton will create necessary unit file, job file, or init script(s) on th
 If the service already exists, an error is returned.
 By default, the service is not started nor enambed for boot.
 
-You must provide at least the I<name> and I<run> arguments to add a new service.
+You must provide at least the I<name> and I<runcmd> arguments to add a new service.
 
     $svc->add(name    => "foo-service",           # Required identifier for service
               title   => "Handles foo requests",  # Optional description
               prerun  => "/bin/foo-prep -a",      # Optional pre-start command(s)
-              run     => "/bin/foo-daemon -D",    # Required command(s) to run the service
+              runcmd  => "/bin/foo-daemon -D",    # Required command(s) to run the service
               postrun => "/bin/foo-fix -x",       # Optional post-start command(s)
               enable  => 1,                       # Optional, enable to start at boot
               start   => 1,                       # Optional, start the service now
@@ -1365,8 +1367,8 @@ The service name must be a simple identifier, consisting only of alphanumeric ch
 dash "-", dot ".", underscore "_", colon ":", or the at-sign "@".
 The maximum length is 64 characters.
 
-The prerun, run, and postrun commands must use absolute paths to the executable.
-Multiple commands can be specified for prerun and postrun -- but not C<run> -- by passing an arrayref:
+The prerun, runcmd, and postrun commands must use absolute paths to the executable.
+Multiple commands can be specified for prerun and postrun -- but not C<runcmd> -- by passing an arrayref:
 
               prerun => ["/bin/foo-red -a 2",
                          "/bin/foo-daemon -D -p1234"]

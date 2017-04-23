@@ -56,7 +56,7 @@ SKIP: {
     is $svc->error,      q{},   "Lookup went ok";
     is $svc->name,       "ssh", "Loaded name";
     isnt $svc->type,     q{},   "Loaded type: " . $svc->type;
-    isnt $svc->run,      q{},   "Loaded run: " . $svc->run;
+    isnt $svc->runcmd,   q{},   "Loaded runcmd: " . $svc->runcmd;
     isnt $svc->initfile, q{},   "Loaded initfile: " . $svc->initfile;
     isnt $svc->initsys,  q{},   "Loaded initsys: " . $svc->initsys;
 }
@@ -64,11 +64,11 @@ SKIP: {
 # Test option variations
 diag " ";
 diag "--- Option variations ---";
-$svc = new Init::Service(title => "The bar daemon", run => "/bin/true");
+$svc = new Init::Service(title => "The bar daemon", runcmd => "/bin/true");
 is $svc->error, q{}, "Basic new(), normal opts";
-$svc = new Init::Service(TiTlE => "The bar daemon", rUN => "/bin/true");
+$svc = new Init::Service(TiTlE => "The bar daemon", rUNcMD => "/bin/true");
 is $svc->error, q{}, "Basic new(), mixed case opts";
-$svc = new Init::Service(-tiTLE=> "The bar daemon", -ruN => "/bin/true");
+$svc = new Init::Service(-tiTLE=> "The bar daemon", -ruNCmD => "/bin/true");
 is $svc->error, q{}, "Basic new(), dash opts";
 
 $svc = new Init::Service(-NAME => "fiz-daemon", blahblah => "/bin/true");
