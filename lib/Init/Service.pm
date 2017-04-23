@@ -118,7 +118,7 @@ sub new {
     bless $this, $class;
 
     # Create or load on new
-    $this->add()  if $opts{name} && $opts{runcmd};
+    $this->add()  if $opts{name} &&  $opts{runcmd};
     $this->load() if $opts{name} && !$opts{runcmd};
 
     # Enabled or started on new?
@@ -276,12 +276,12 @@ sub add {
     my $this = shift;
     my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
     return $this->{err} if $this->{err};
-    my $name  = $this->{name};
-    my $title = $this->{title};
-    my $type  = $this->{type} || "simple";
-    my $pre   = $this->{prerun};
-    my $runcmd   = $this->{runcmd};
-    my $post  = $this->{postrun};
+    my $name   = $this->{name};
+    my $title  = $this->{title};
+    my $type   = $this->{type} || "simple";
+    my $pre    = $this->{prerun};
+    my $runcmd = $this->{runcmd};
+    my $post   = $this->{postrun};
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
 
@@ -368,7 +368,7 @@ sub load {
     $this->{title}    = q{};
     $this->{type}     = 'simple';
     $this->{prerun}   = [];
-    $this->{runcmd}      = q{};
+    $this->{runcmd}   = q{};
     $this->{postrun}  = [];
     $this->{running}  = 0;
     $this->{on_boot}  = 0;
@@ -434,7 +434,7 @@ sub remove {
     # Clear all
     $this->{name}     = q{};
     $this->{prerun}   = [];
-    $this->{runcmd}      = q{};
+    $this->{runcmd}   = q{};
     $this->{postrun}  = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
@@ -483,12 +483,12 @@ sub add {
     my $this = shift;
     my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
     return $this->{err} if $this->{err};
-    my $name  = $this->{name};
-    my $title = $this->{title};
-    my $type  = $this->{type} || "simple";
-    my $pre   = $this->{prerun};
-    my $runcmd   = $this->{runcmd};
-    my $post  = $this->{postrun};
+    my $name   = $this->{name};
+    my $title  = $this->{title};
+    my $type   = $this->{type} || "simple";
+    my $pre    = $this->{prerun};
+    my $runcmd = $this->{runcmd};
+    my $post   = $this->{postrun};
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
 
@@ -596,7 +596,7 @@ sub load {
     $this->{title}   = q{};
     $this->{type}    = 'simple';
     $this->{prerun}  = [];
-    $this->{runcmd}     = q{};
+    $this->{runcmd}  = q{};
     $this->{postrun} = [];
     $this->{running} = 0;
     $this->{on_boot} = 0;
@@ -649,7 +649,7 @@ sub load {
         $this->{title}   = $1        if $line =~ m{^\s*description\s+"?(.+?)"?\s*$}i;
         $this->{type}    = 'forking' if $line =~ m{^\s*expect\s+daemon\b}i;
         $this->{type}    = 'notify'  if $line =~ m{^\s*expect\s+stop\b}i;
-        $this->{runcmd}     = $1        if $line =~ m{^\s*exec\s+(.+)$}i;
+        $this->{runcmd}  = $1        if $line =~ m{^\s*exec\s+(.+)$}i;
         $this->{postrun} = $1        if $line =~ m{^\s*post-start\s+exec\s+(.+)$}i;
         $this->{on_boot} = 1         if $line =~ m{^\s*start\s+on\b}i;
     }
@@ -690,7 +690,7 @@ sub remove {
     # Clear all
     $this->{name}     = q{};
     $this->{prerun}   = [];
-    $this->{runcmd}      = q{};
+    $this->{runcmd}   = q{};
     $this->{postrun}  = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
@@ -739,13 +739,13 @@ sub add {
     my $this = shift;
     my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
     return $this->{err} if $this->{err};
-    my $root  = $this->{root} || q{};
-    my $name  = $this->{name};
-    my $title = $this->{title};
-    my $type  = $this->{type} || "simple";
-    my $pre   = $this->{prerun};
-    my $runcmd   = $this->{runcmd};
-    my $post  = $this->{postrun};
+    my $root   = $this->{root} || q{};
+    my $name   = $this->{name};
+    my $title  = $this->{title};
+    my $type   = $this->{type} || "simple";
+    my $pre    = $this->{prerun};
+    my $runcmd = $this->{runcmd};
+    my $post   = $this->{postrun};
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
 
@@ -988,7 +988,7 @@ sub load {
     $this->{title}   = q{};
     $this->{type}    = 'simple';
     $this->{prerun}  = [];
-    $this->{runcmd}     = q{};
+    $this->{runcmd}  = q{};
     $this->{postrun} = [];
     $this->{running} = 0;
     $this->{on_boot} = 0;
@@ -1120,7 +1120,7 @@ sub remove {
     # Clear all
     $this->{name}     = q{};
     $this->{prerun}   = [];
-    $this->{runcmd}      = q{};
+    $this->{runcmd}   = q{};
     $this->{postrun}  = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
@@ -1202,8 +1202,8 @@ each of the corresponding init system's equivalent functionality.
     say $svc->running? "Running" : "Stopped";
 
     # Make new service known to the system (creates .service, .conf, or /etc/init.d file)
-    $err = $svc->add(name => "foo-daemon",
-                     runcmd  => "/usr/bin/foo-daemon -D -p1234");
+    $err = $svc->add(name   => "foo-daemon",
+                     runcmd => "/usr/bin/foo-daemon -D -p1234");
        # --or--
     $svc = Init::Service->new( ...same args...)
     if ($svc->error) { ... }
@@ -1235,8 +1235,8 @@ object, which can later be add()'d or load()'d.
 With at least both I<name> and I<runcmd> passed, creates a new service on the system.
 This is the same as calling an empty new() then calling add() with those arguments.
 
-    my $svc = new Init::Service(name => 'foo-daemon',
-                                  runcmd  => '/usr/bin/foo-daemon -D -p1234');
+    my $svc = new Init::Service(name   => 'foo-daemon',
+                                runcmd => '/usr/bin/foo-daemon -D -p1234');
     if ($svc->error) { ... }
 
 When called with I<name> but NOT I<runcmd>, it will attempt to load() an existing service, if any.
@@ -1414,7 +1414,6 @@ Uncle Spook, C<< <spook at MisfitMountain.org> >>
 
 Please report any bugs or feature requests via the GitHub issue
 tracker at https://github.com/spook/service/issues .
-
 
 You can find documentation for this module with the perldoc command.
 
