@@ -20,12 +20,17 @@ SKIP: {
     my @prs;
     my @pos;
     my $svc_nam = "test-020";
-    my $svc_prr = ["/bin/echo this is the prerun command", "/bin/true 1 2 3"];
+    my $svc_prr = ["/bin/echo this is the prerun command", 
+                   "/bin/true 1 2 3"];
     my $svc_dmn = "/tmp/$svc_nam.sh";
     my $svc_run = "$svc_dmn a b c";
-    my $svc_por = ["/bin/true 99", "/bin/echo almost done", "/bin/echo Ta da, I am done"];
-    my $svc_prs = ["/bin/echo prestop-one", "/bin/echo prestop-two"];
-    my $svc_pos = ["/bin/echo 't-minus 9'", "/bin/echo 't-minus 8'"];
+    my $svc_por = ["/bin/true 99", 
+                   "/bin/echo Doing my post-run sequence", 
+                   "/bin/echo Ta da, I am done"];
+    my $svc_prs = ["/bin/echo prestop-one", 
+                   "/bin/echo prestop-two"];
+    my $svc_pos = ["/bin/echo 't-minus 9'", 
+                   "/bin/echo 't-minus 8'"];
     my $svc_tit = "Test service for Init::Service test #020";
     my $svc_typ = "simple";
     open D, ">", $svc_dmn
