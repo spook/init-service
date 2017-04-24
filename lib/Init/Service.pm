@@ -1359,9 +1359,11 @@ You must provide at least the I<name> and I<runcmd> arguments to add a new servi
 
     $svc->add(name    => "foo-service",           # Required identifier for service
               title   => "Handles foo requests",  # Optional description
-              prerun  => "/bin/foo-prep -a",      # Optional pre-start command(s)
+              prerun  => ["/bin/foo-prep -a"],    # Optional pre-start command(s)
               runcmd  => "/bin/foo-daemon -D",    # Required command(s) to run the service
-              postrun => "/bin/foo-fix -x",       # Optional post-start command(s)
+              postrun => ["/bin/foo-fix -x"],     # Optional post-start command(s)
+              prestop => ["/bin/echo bye"],       # Optional pre-stop command(s)
+              poststop => ["bin/rm /tmp/t3*"],    # Optional post-stop command(s)
               enable  => 1,                       # Optional, enable to start at boot
               start   => 1,                       # Optional, start the service now
              );
@@ -1373,11 +1375,19 @@ The service name must be a simple identifier, consisting only of alphanumeric ch
 dash "-", dot ".", underscore "_", colon ":", or the at-sign "@".
 The maximum length is 64 characters.
 
-The prerun, runcmd, and postrun commands MUST use absolute paths to the executable.
-Multiple commands can be specified for prerun and postrun -- but not C<runcmd> -- by passing an arrayref:
+The prerun, runcmd, postrun, prestop, and poststop commands MUST use absolute
+paths to the executable.  The C<runcmd> must be only a single command, and is
+passed as a scalar string.  The others -- prerun, postrun, prestop, poststop
+-- accept multiple commands.  Whether one command or multiple, they must be
+passed as an array ref:
 
+              prerun => ["/bin/bar-blue -x3"]           # Single command
               prerun => ["/bin/foo-red -a 2",
-                         "/bin/foo-daemon -D -p1234"]
+                         "/bin/foo-daemon -D -p1234"]   # Two commands
+
+Note: You cannot (yet) specify a shell script for any of the command options.
+They must be individual executables.  Script snippets are planned for the
+future.
 
 To un-do an C<add()>, use C<remove()>.
 
