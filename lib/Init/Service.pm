@@ -280,12 +280,14 @@ sub add {
     my $this = shift;
     my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
     return $this->{err} if $this->{err};
-    my $name    = $this->{name};
-    my $title   = $this->{title};
-    my $type    = $this->{type} || "simple";
-    my $prerun  = $this->{prerun};
-    my $runcmd  = $this->{runcmd};
-    my $postrun = $this->{postrun};
+    my $name     = $this->{name};
+    my $title    = $this->{title};
+    my $type     = $this->{type} || "simple";
+    my $prerun   = $this->{prerun};
+    my $runcmd   = $this->{runcmd};
+    my $postrun  = $this->{postrun};
+    my $prestop  = $this->{prestop};
+    my $poststop = $this->{prestop};
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
 
@@ -307,6 +309,12 @@ sub add {
     print UF "ExecStart=$runcmd\n";
     foreach my $cmd (@$postrun) {
         print UF "ExecStartPost=$cmd\n";
+    }
+    foreach my $cmd (@$prestop) {
+        print UF "ExecStop=$cmd\n";
+    }
+    foreach my $cmd (@$poststop) {
+        print UF "ExecStopPost=$cmd\n";
     }
     print UF "Type=$type\n";
 
@@ -374,6 +382,8 @@ sub load {
     $this->{prerun}   = [];
     $this->{runcmd}   = q{};
     $this->{postrun}  = [];
+    $this->{prestop}  = [];
+    $this->{poststop} = [];
     $this->{running}  = 0;
     $this->{on_boot}  = 0;
     $this->{initfile} = "$this->{root}/lib/systemd/system/$name.service";
@@ -409,6 +419,18 @@ sub load {
             push @{$this->{postrun}}, $v;
             next;
         }
+        if ($k eq 'ExecStop') {
+            $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
+            next unless $v; # Cannot have blank commands here
+            push @{$this->{prestop}}, $v;
+            next;
+        }
+        if ($k eq 'ExecStopPost') {
+            $v = $1 if $v =~ m{argv\[]=(.+?)\s*\;};
+            next unless $v; # Cannot have blank commands here
+            push @{$this->{poststop}}, $v;
+            next;
+        }
         $this->{type}    = $v if  $k eq 'Type';
         $this->{title}   = $v if  $k eq 'Description';
         $this->{running} = 1  if ($k eq 'SubState')      && ($v =~ m/running/i);
@@ -442,6 +464,8 @@ sub remove {
     $this->{prerun}   = [];
     $this->{runcmd}   = q{};
     $this->{postrun}  = [];
+    $this->{prestop}  = [];
+    $this->{poststop} = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
     $this->{initfile} = q{};
@@ -489,12 +513,14 @@ sub add {
     my $this = shift;
     my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
     return $this->{err} if $this->{err};
-    my $name    = $this->{name};
-    my $title   = $this->{title};
-    my $type    = $this->{type} || "simple";
-    my $prerun  = $this->{prerun};
-    my $runcmd  = $this->{runcmd};
-    my $postrun = $this->{postrun};
+    my $name     = $this->{name};
+    my $title    = $this->{title};
+    my $type     = $this->{type} || "simple";
+    my $prerun   = $this->{prerun};
+    my $runcmd   = $this->{runcmd};
+    my $postrun  = $this->{postrun};
+    my $prestop  = $this->{prestop};
+    my $poststop = $this->{prestop};
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
 
@@ -520,6 +546,16 @@ sub add {
     print UF "expect fork\n"   if $type eq "BLAHBLAHTBD";    # TODO what to use here?
     print UF "expect daemon\n" if $type eq "forking";
     print UF "expect stop\n"   if $type eq "notify";
+    print UF "pre-stop script\n" if @$prestop;
+    foreach my $cmd (@$prestop) {
+        print UF "    $cmd\n";
+    }
+    print UF "end script\n" if @$prestop;
+    print UF "post-stop script\n" if @$poststop;
+    foreach my $cmd (@$poststop) {
+        print UF "    $cmd\n";
+    }
+    print UF "end script\n" if @$poststop;
     close UF;
     chmod 0644, $initfile
         or return $this->{err} = "Cannot chmod 644 file $initfile: $!";
@@ -598,33 +634,37 @@ sub load {
     my $name = $this->{name};
 
     # Clear everything first
-    $this->{name}    = $name;
-    $this->{title}   = q{};
-    $this->{type}    = 'simple';
-    $this->{prerun}  = [];
-    $this->{runcmd}  = q{};
-    $this->{postrun} = [];
-    $this->{running} = 0;
-    $this->{on_boot} = 0;
+    $this->{name}     = $name;
+    $this->{title}    = q{};
+    $this->{type}     = 'simple';
+    $this->{prerun}   = [];
+    $this->{runcmd}   = q{};
+    $this->{postrun}  = [];
+    $this->{prestop}  = [];
+    $this->{poststop} = [];
+    $this->{running}  = 0;
+    $this->{on_boot}  = 0;
 
     # Parse the init file
     my $initfile = $this->{initfile} = "$this->{root}/etc/init/$name.conf";
     open(UF, '<', $initfile)
         or return $this->{err} = "No such service $name: cannot open $initfile: $!";
-    my $inpre  = 0;
-    my $inpost = 0;
+    my $inprerun   = 0;
+    my $inpostrun  = 0;
+    my $inprestop  = 0;
+    my $inpoststop = 0;
     while (my $line = <UF>) {
         if ($line =~ m{^\s*pre-start\s+exec\s+(.+)$}i) {
             push @{$this->{prerun}}, $1;
             next;
         }
         if ($line =~ m{^\s*pre-start\s+script\s*$}i) {
-            $inpre = 1;
+            $inprerun = 1;
             next;
         }
-        if ($inpre) {
+        if ($inprerun) {
             if ($line =~ m{^\s*end\s+script\s*$}i) {
-                $inpre = 0;
+                $inprerun = 0;
             }
             else {
                 chomp $line;
@@ -633,17 +673,18 @@ sub load {
             }
             next;
         }
+
         if ($line =~ m{^\s*post-start\s+exec\s+(.+)$}i) {
             push @{$this->{postrun}}, $1;
             next;
         }
         if ($line =~ m{^\s*post-start\s+script\s*$}i) {
-            $inpost = 1;
+            $inpostrun = 1;
             next;
         }
-        if ($inpost) {
+        if ($inpostrun) {
             if ($line =~ m{^\s*end\s+script\s*$}i) {
-                $inpost = 0;
+                $inpostrun = 0;
             }
             else {
                 chomp $line;
@@ -652,6 +693,47 @@ sub load {
             }
             next;
         }
+
+        if ($line =~ m{^\s*pre-stop\s+exec\s+(.+)$}i) {
+            push @{$this->{prestop}}, $1;
+            next;
+        }
+        if ($line =~ m{^\s*pre-stop\s+script\s*$}i) {
+            $inprestop = 1;
+            next;
+        }
+        if ($inprestop) {
+            if ($line =~ m{^\s*end\s+script\s*$}i) {
+                $inprestop = 0;
+            }
+            else {
+                chomp $line;
+                $line =~ s{^\s{4}}{};
+                push @{$this->{prestop}}, $line;
+            }
+            next;
+        }
+
+        if ($line =~ m{^\s*post-stop\s+exec\s+(.+)$}i) {
+            push @{$this->{poststop}}, $1;
+            next;
+        }
+        if ($line =~ m{^\s*post-stop\s+script\s*$}i) {
+            $inpoststop = 1;
+            next;
+        }
+        if ($inpoststop) {
+            if ($line =~ m{^\s*end\s+script\s*$}i) {
+                $inpoststop = 0;
+            }
+            else {
+                chomp $line;
+                $line =~ s{^\s{4}}{};
+                push @{$this->{poststop}}, $line;
+            }
+            next;
+        }
+
         $this->{title}   = $1        if $line =~ m{^\s*description\s+"?(.+?)"?\s*$}i;
         $this->{type}    = 'forking' if $line =~ m{^\s*expect\s+daemon\b}i;
         $this->{type}    = 'notify'  if $line =~ m{^\s*expect\s+stop\b}i;
@@ -698,6 +780,8 @@ sub remove {
     $this->{prerun}   = [];
     $this->{runcmd}   = q{};
     $this->{postrun}  = [];
+    $this->{prestop}  = [];
+    $this->{poststop} = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
     $this->{initfile} = q{};
@@ -745,13 +829,15 @@ sub add {
     my $this = shift;
     my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
     return $this->{err} if $this->{err};
-    my $root    = $this->{root} || q{};
-    my $name    = $this->{name};
-    my $title   = $this->{title};
-    my $type    = $this->{type} || "simple";
-    my $prerun  = $this->{prerun};
-    my $runcmd  = $this->{runcmd};
-    my $postrun = $this->{postrun};
+    my $root     = $this->{root} || q{};
+    my $name     = $this->{name};
+    my $title    = $this->{title};
+    my $type     = $this->{type} || "simple";
+    my $prerun   = $this->{prerun};
+    my $runcmd   = $this->{runcmd};
+    my $postrun  = $this->{postrun};
+    my $prestop  = $this->{prestop};
+    my $poststop = $this->{poststop};
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
 
@@ -759,20 +845,36 @@ sub add {
     my $bgflag_ub = ($type eq "simple") || ($type eq "notify") ? "--background" : q{};
     my $bgflag_rh = ($type eq "simple") || ($type eq "notify") ? "&"            : q{};
 
-    my $prechunk = q{};
+    my $prestartchunk = q{};
     if (@$prerun) {
-        $prechunk
+        $prestartchunk
             = "\n    log_daemon_msg \"Pre-Start  $title\" \"$name\" || true"
             . "\n    "
             . join("\n    ", @$prerun)
             . "\n    log_end_msg 0 || true";
     }
-    my $postchunk = q{};
+    my $poststartchunk = q{};
     if (@$postrun) {
-        $postchunk
+        $poststartchunk
             = "\n    log_daemon_msg \"Post-Start $title\" \"$name\" || true"
             . "\n    "
             . join("\n    ", @$postrun)
+            . "\n    log_end_msg 0 || true";
+    }
+    my $prestopchunk = q{};
+    if (@$prestop) {
+        $prestopchunk
+            = "\n    log_daemon_msg \"Pre-Stop  $title\" \"$name\" || true"
+            . "\n    "
+            . join("\n    ", @$prestop)
+            . "\n    log_end_msg 0 || true";
+    }
+    my $poststopchunk = q{};
+    if (@$poststop) {
+        $poststopchunk
+            = "\n    log_daemon_msg \"Post-Stop $title\" \"$name\" || true"
+            . "\n    "
+            . join("\n    ", @$poststop)
             . "\n    log_end_msg 0 || true";
     }
 
@@ -848,7 +950,7 @@ export PATH=$root/usr/local/sbin:$root/usr/local/bin:$root/sbin:$root/bin:$root/
 
 case "\$1" in
   start)
-    # BEGIN PRE-START$prechunk
+    # BEGIN PRE-START$prestartchunk
     # END PRE-START
     log_daemon_msg "Starting   $title" "\$NAME" || true
     if \$START_CMD ; then
@@ -856,17 +958,21 @@ case "\$1" in
     else
         log_end_msg 1 || true
     fi
-    # BEGIN POST-START$postchunk
+    # BEGIN POST-START$poststartchunk
     # END POST-START
     ;;
 
   stop)
+    # BEGIN PRE-STOP$prestopchunk
+    # END PRE-STOP
     log_daemon_msg "Stopping $title" "\$NAME" || true
     if \$STOP_CMD; then
         log_end_msg 0 || true
     else
         log_end_msg 1 || true
     fi
+    # BEGIN POST-STOP$poststopchunk
+    # END POST-STOP
     ;;
 
   reload)
@@ -990,32 +1096,36 @@ sub load {
     my $name = $this->{name};
 
     # Reset everything
-    $this->{name}    = $name;
-    $this->{title}   = q{};
-    $this->{type}    = 'simple';
-    $this->{prerun}  = [];
-    $this->{runcmd}  = q{};
-    $this->{postrun} = [];
-    $this->{running} = 0;
-    $this->{on_boot} = 0;
+    $this->{name}     = $name;
+    $this->{title}    = q{};
+    $this->{type}     = 'simple';
+    $this->{prerun}   = [];
+    $this->{runcmd}   = q{};
+    $this->{postrun}  = [];
+    $this->{prestop}  = [];
+    $this->{poststop} = [];
+    $this->{running}  = 0;
+    $this->{on_boot}  = 0;
 
     # Parse the init file
     my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
     open(UF, '<', $initfile)
         or return $this->{err} = "No such service $name: cannot open $initfile: $!";
-    my $inpre  = 0;
-    my $inpost = 0;
-    my $daemon = q{};
-    my $dopts  = q{};
+    my $inprerun   = 0;
+    my $inpostrun  = 0;
+    my $inprestop  = 0;
+    my $inpoststop = 0;
+    my $daemon     = q{};
+    my $dopts      = q{};
     while (my $line = <UF>) {
 
         if ($line =~ m{^\s*#\s*BEGIN\s+PRE-START\s*$}i) {
-            $inpre = 1;
+            $inprerun = 1;
             next;
         }
-        if ($inpre) {
+        if ($inprerun) {
             if ($line =~ m{^\s*#\s*END\s+PRE-START\s*$}i) {
-                $inpre = 0;
+                $inprerun = 0;
             }
             else {
                 chomp $line;
@@ -1024,13 +1134,14 @@ sub load {
             }
             next;
         }
+
         if ($line =~ m{^\s*#\s*BEGIN\s+POST-START\s*$}i) {
-            $inpost = 1;
+            $inpostrun = 1;
             next;
         }
-        if ($inpost) {
+        if ($inpostrun) {
             if ($line =~ m{^\s*#\s*END\s+POST-START\s*$}i) {
-                $inpost = 0;
+                $inpostrun = 0;
             }
             else {
                 chomp $line;
@@ -1039,6 +1150,39 @@ sub load {
             }
             next;
         }
+
+        if ($line =~ m{^\s*#\s*BEGIN\s+PRE-STOP\s*$}i) {
+            $inprestop = 1;
+            next;
+        }
+        if ($inprestop) {
+            if ($line =~ m{^\s*#\s*END\s+PRE-STOP\s*$}i) {
+                $inprestop = 0;
+            }
+            else {
+                chomp $line;
+                $line =~ s{^\s{4}}{};
+                push @{$this->{prestop}}, $line;
+            }
+            next;
+        }
+
+        if ($line =~ m{^\s*#\s*BEGIN\s+POST-STOP\s*$}i) {
+            $inpoststop = 1;
+            next;
+        }
+        if ($inpoststop) {
+            if ($line =~ m{^\s*#\s*END\s+POST-STOP\s*$}i) {
+                $inpoststop = 0;
+            }
+            else {
+                chomp $line;
+                $line =~ s{^\s{4}}{};
+                push @{$this->{poststop}}, $line;
+            }
+            next;
+        }
+
         $this->{title} = $1 if $line =~ m{^\s*#\s*short-description:\s+(.+?)\s*$}i;
         $this->{type}  = $1 if $line =~ m{^\s*TYPE=\s*(.+?)\s*$};
         $dopts         = $1 if $line =~ m{^\s*DOPTS=\s*\"?(.+?)\"?\s*$};
@@ -1128,6 +1272,8 @@ sub remove {
     $this->{prerun}   = [];
     $this->{runcmd}   = q{};
     $this->{postrun}  = [];
+    $this->{prestop}  = [];
+    $this->{poststop} = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
     $this->{initfile} = q{};
