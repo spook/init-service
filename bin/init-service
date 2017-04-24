@@ -15,8 +15,10 @@ GetOptions($opts,
             "type|t=s",
             "title|d=s",
             "run|r=s",
-            "prerun|p=s",
-            "postrun|o=s",
+            "prerun|p=s@",
+            "postrun|o=s@",
+            "prestop|P=s@",
+            "poststop|O=s@",
             "enable|e",
             "start|s",
             ) or usage("*** Command options error", 1);
@@ -68,8 +70,12 @@ sub usage {
     -d --title DSC    Short description of the service
     -p --prerun CMD   Command and args to run before starting the service
     -o --postrun CMD  Command and args to run after starting the service
+    -P --prestop CMD  Command and args to run before stopping the service
+    -O --poststop CMD Command and args to run after stopping the service
     -e --enable       Enable the service so it starts at boot
     -s --start        Start the service now, after adding it
+
+    -p, -o, -P, -O may be repeated for multiple commands.
 };
     print STDERR shift(@_) . "\n" if @_;
     exit(shift(@_) || 0);
@@ -79,15 +85,17 @@ sub do_add {
     my $svc  = shift;
     my $name = shift;
     my $opts = shift;
-    die "*** 'run' missing\n" unless $opts->{run};
-    $svc->add(-name    => $name,
-              -title   => $opts->{title}    || q{},
-              -type    => $opts->{type}     || "simple",
-              -prerun  => $opts->{prerun}   || q{},
-              -run     => $opts->{run},
-              -postrun => $opts->{prostrun} || q{},
-              -enable  => $opts->{enable}   || 0,
-              -start   => $opts->{start}    || 0,
+    die "*** '--run' missing\n" unless $opts->{run};
+    $svc->add(-name     => $name,
+              -title    => $opts->{title}    || q{},
+              -type     => $opts->{type}     || "simple",
+              -prerun   => $opts->{prerun}   || [],
+              -run      => $opts->{run},
+              -postrun  => $opts->{postrun}  || [],
+              -prestop  => $opts->{prestop}  || [],
+              -poststop => $opts->{poststop} || [],
+              -enable   => $opts->{enable}   || 0,
+              -start    => $opts->{start}    || 0,
              );
 }
 
