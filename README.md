@@ -104,8 +104,12 @@ Usage: init-service FUNCTION SVCNAME [options...]
     -d --title DSC    Short description of the service
     -p --prerun CMD   Command and args to run before starting the service
     -o --postrun CMD  Command and args to run after starting the service
+    -P --prestop CMD  Command and args to run before stopping the service
+    -O --poststop CMD Command and args to run after stopping the service
     -e --enable       Enable the service so it starts at boot
     -s --start        Start the service now, after adding it
+
+    -p, -o, -P, -O may be repeated for multiple commands.
 ```
 
 ## Want to help?
@@ -115,7 +119,7 @@ First, understand the project's goals:
 * init-service is NOT the be-all, end-all.  It's scope is to handle
 the common, popular situations for working with simple services.
 * Minimal dependencies: Currently it requires /bin/sh and core Perl modules;
-eventually I want this to be shell only.
+eventually I want this to be shell only.  Add no dependencies please!
 
 The best way to help is to test and fix this to work on various flavors
 and versions of Linux operating systems.  To date, these are tested:
@@ -128,7 +132,11 @@ and versions of Linux operating systems.  To date, these are tested:
 * CentOS 6.5
 * CentOS 7.1
 
-More are welcome!  For other work, look to the TODO file in the distribution.  Thanx!
+More O/S's are welcome!  
+
+This project could always use more tests, too.
+
+For other work, look to the TODO file in the distribution.  Thanx!
 
 -- Uncle Spook
 
