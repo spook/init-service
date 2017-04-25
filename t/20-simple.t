@@ -31,7 +31,7 @@ SKIP: {
                    "/bin/echo prestop-two"];
     my $svc_pos = ["/bin/echo 't-minus 9'", 
                    "/bin/echo 't-minus 8'"];
-    my $svc_tit = "Test service for Init::Service test #020";
+    my $svc_ttl = "Test service for Init::Service test #020";
     my $svc_typ = "simple";
     open D, ">", $svc_dmn
         or die "*** Cannot create daemon script $svc_dmn: $!";
@@ -61,7 +61,7 @@ SKIP: {
         postrun  => $svc_por,
         prestop  => $svc_prs,
         poststop => $svc_pos,
-        title    => $svc_tit
+        title    => $svc_ttl,
     );
     @prr = $svc->prerun();
     @por = $svc->postrun();
@@ -72,7 +72,7 @@ SKIP: {
     is_deeply \@prr,    $svc_prr,   "  PreRun correct";
     is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
     is_deeply \@por,    $svc_por,   "  PostRun correct";
-    is $svc->title(),   $svc_tit,   "  Title correct";
+    is $svc->title(),   $svc_ttl,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled for boot";
@@ -90,7 +90,7 @@ SKIP: {
     is_deeply \@prr,    $svc_prr,   "  PreRun correct";
     is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
     is_deeply \@por,    $svc_por,   "  PostRun correct";
-    is $svc->title(),   $svc_tit,   "  Title correct";
+    is $svc->title(),   $svc_ttl,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled for boot";
@@ -116,7 +116,7 @@ SKIP: {
     is_deeply \@prr,    $svc_prr,   "  PreRun correct";
     is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
     is_deeply \@por,    $svc_por,   "  PostRun correct";
-    is $svc->title(),   $svc_tit,   "  Title correct";
+    is $svc->title(),   $svc_ttl,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
     ok $svc->enabled(),  "  Is enabled for boot";
@@ -142,7 +142,7 @@ SKIP: {
     is_deeply \@prr,    $svc_prr,   "  PreRun correct";
     is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
     is_deeply \@por,    $svc_por,   "  PostRun correct";
-    is $svc->title(),   $svc_tit,   "  Title correct";
+    is $svc->title(),   $svc_ttl,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled for boot";
@@ -168,7 +168,7 @@ SKIP: {
     is_deeply \@prr,    $svc_prr,   "  PreRun correct";
     is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
     is_deeply \@por,    $svc_por,   "  PostRun correct";
-    is $svc->title(),   $svc_tit,   "  Title correct";
+    is $svc->title(),   $svc_ttl,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
     ok $svc->running(),  "  Is running";
     ok !$svc->enabled(), "  Not enabled for boot";
@@ -200,7 +200,7 @@ SKIP: {
     is_deeply \@prr,    $svc_prr,   "  PreRun correct";
     is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
     is_deeply \@por,    $svc_por,   "  PostRun correct";
-    is $svc->title(),   $svc_tit,   "  Title correct";
+    is $svc->title(),   $svc_ttl,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled for boot";

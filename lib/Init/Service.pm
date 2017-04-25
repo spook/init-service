@@ -848,34 +848,42 @@ sub add {
     my $prestartchunk = q{};
     if (@$prerun) {
         $prestartchunk
-            = "\n    log_daemon_msg \"Pre-Start  $title\" \"$name\" || true"
+            = "# BEGIN PRE-START"
+            . "\n    log_daemon_msg \"Pre-Start  $title\" \"$name\" || true"
             . "\n    "
             . join("\n    ", @$prerun)
-            . "\n    log_end_msg 0 || true";
+            . "\n    log_end_msg 0 || true"
+            . "\n    # END PRE-START";
     }
     my $poststartchunk = q{};
     if (@$postrun) {
         $poststartchunk
-            = "\n    log_daemon_msg \"Post-Start $title\" \"$name\" || true"
+            = "# BEGIN POST-START"
+            . "\n    log_daemon_msg \"Post-Start $title\" \"$name\" || true"
             . "\n    "
             . join("\n    ", @$postrun)
-            . "\n    log_end_msg 0 || true";
+            . "\n    log_end_msg 0 || true"
+            . "\n    # END POST-START";
     }
     my $prestopchunk = q{};
     if (@$prestop) {
         $prestopchunk
-            = "\n    log_daemon_msg \"Pre-Stop  $title\" \"$name\" || true"
+            = "# BEGIN PRE-STOP"
+            . "\n    log_daemon_msg \"Pre-Stop  $title\" \"$name\" || true"
             . "\n    "
             . join("\n    ", @$prestop)
-            . "\n    log_end_msg 0 || true";
+            . "\n    log_end_msg 0 || true"
+            . "\n    # END PRE-STOP";
     }
     my $poststopchunk = q{};
     if (@$poststop) {
         $poststopchunk
-            = "\n    log_daemon_msg \"Post-Stop $title\" \"$name\" || true"
+            = "# BEGIN POST-STOP"
+            . "\n    log_daemon_msg \"Post-Stop $title\" \"$name\" || true"
             . "\n    "
             . join("\n    ", @$poststop)
-            . "\n    log_end_msg 0 || true";
+            . "\n    log_end_msg 0 || true"
+            . "\n    # END POST-STOP";
     }
 
     # Form the script
@@ -950,29 +958,29 @@ export PATH=$root/usr/local/sbin:$root/usr/local/bin:$root/sbin:$root/bin:$root/
 
 case "\$1" in
   start)
-    # BEGIN PRE-START$prestartchunk
-    # END PRE-START
+    if \$STATUS_CMD 1>/dev/null 2>&1 ; then
+        echo "\$NAME already running" 1>&2
+        exit 0
+    fi
+    $prestartchunk
     log_daemon_msg "Starting   $title" "\$NAME" || true
     if \$START_CMD ; then
         log_end_msg 0 || true
     else
         log_end_msg 1 || true
     fi
-    # BEGIN POST-START$poststartchunk
-    # END POST-START
+    $poststartchunk
     ;;
 
   stop)
-    # BEGIN PRE-STOP$prestopchunk
-    # END PRE-STOP
+    $prestopchunk
     log_daemon_msg "Stopping $title" "\$NAME" || true
     if \$STOP_CMD; then
         log_end_msg 0 || true
     else
         log_end_msg 1 || true
     fi
-    # BEGIN POST-STOP$poststopchunk
-    # END POST-STOP
+    $poststopchunk
     ;;
 
   reload)
