@@ -973,6 +973,10 @@ case "\$1" in
     ;;
 
   stop)
+    if ! \$STATUS_CMD 1>/dev/null 2>&1 ; then
+        echo "\$NAME already stopped" 1>&2
+        exit 0
+    fi
     $prestopchunk
     log_daemon_msg "Stopping $title" "\$NAME" || true
     if \$STOP_CMD; then
