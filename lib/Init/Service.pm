@@ -998,6 +998,11 @@ case "\$1" in
 
   restart)
     \$0 stop
+    while true; do
+        sleep 1
+        \$STATUS_CMD 1>/dev/null 2>&1
+        [ \$? -ne "0" ] && break
+    done
     \$0 start
     ;;
 
