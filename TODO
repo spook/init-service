@@ -38,7 +38,7 @@ To Do
 * Figure out runlevel and before/after dependencies
 
 * Getters into both getters & setters  .. maybe
-* Add dump() diagnostic function (or is the ini-service command enuf for this?)
+* Add dump() diagnostic function (or is the init-service command enuf for this?)
 * commands can be list ref's
     - and if non-oneshot for systemd, create/remove temp /bin/sh script
 
