@@ -31,7 +31,7 @@ SKIP: {
                    "/bin/echo prestop-two"];
     my $svc_pos = ["/bin/echo 't-minus 9'", 
                    "/bin/echo 't-minus 8'"];
-    my $svc_ttl = "Test service for Init::Service test #020";
+    my $svc_ttl = "Test ''service'' 'tis \"20\" for Init::Service"; # Has single & double quotes
     my $svc_typ = "simple";
     open D, ">", $svc_dmn
         or die "*** Cannot create daemon script $svc_dmn: $!";

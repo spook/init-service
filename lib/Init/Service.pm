@@ -833,10 +833,10 @@ sub add {
     my $this = shift;
     my %opts = $this->_ckopts(Init::Service::OPTS_ADD(), @_);
     return $this->{err} if $this->{err};
-    my $root     = $this->{root} || q{};
+    my $root     = $this->{root}  || q{};
     my $name     = $this->{name};
-    my $title    = $this->{title};
-    my $type     = $this->{type} || "simple";
+    my $title    = $this->{title} || $name;     # Cannot be blank for chkconfig
+    my $type     = $this->{type}  || "simple";
     my $prerun   = $this->{prerun};
     my $runcmd   = $this->{runcmd};
     my $postrun  = $this->{postrun};
@@ -845,7 +845,8 @@ sub add {
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
 
-    my ($daemon, $opts) = $runcmd =~ m/^\s*(\S+)\s+(.+)$/;
+    my ($daemon, $dopts) = $runcmd =~ m/^\s*(\S+)\s+(.+)$/;
+    $dopts =~ s{('+)}{'"$1"'}g; # protect singe-quote
     my $bgflag_ub = ($type eq "simple") || ($type eq "notify") ? "--background" : q{};
     my $bgflag_rh = ($type eq "simple") || ($type eq "notify") ? "&"            : q{};
 
@@ -915,7 +916,7 @@ umask 022
 
 TYPE=$type
 NAME=$name
-DOPTS="$opts"
+DOPTS='$dopts'
 DAEMON=$daemon
 PID_FILE=$root/var/run/$name.pid
 LOG_FILE=$root/var/log/$name.log
@@ -1206,9 +1207,10 @@ sub load {
 
         $this->{title} = $1 if $line =~ m{^\s*#\s*short-description:\s+(.+?)\s*$}i;
         $this->{type}  = $1 if $line =~ m{^\s*TYPE=\s*(.+?)\s*$};
-        $dopts         = $1 if $line =~ m{^\s*DOPTS=\s*\"?(.+?)\"?\s*$};
+        $dopts         = $1 if $line =~ m{^\s*DOPTS=\s*\'?(.+?)\'?\s*$};
         $daemon        = $1 if $line =~ m{^\s*DAEMON=\s*(.+?)\s*$};
     }
+    $dopts =~ s{'"('+)"'}{$1}g; # un-do single-quote protection
     close UF;
     $this->{runcmd} = "$daemon $dopts";
 
