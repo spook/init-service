@@ -186,12 +186,16 @@ sub _deduce_initsys {
     {
         return $this->{initsys} = INIT_SYSTEMD;
     }
+
+    # Look for upstart
     my $init_ver = qx($this->{root}/sbin/init --version 2>&1) || q{};
     if (-d "$this->{root}/etc/init"
         && $init_ver =~ m{\bupstart\b})
     {
         return $this->{initsys} = INIT_UPSTART;
     }
+
+    # At this point, probably SysVinit
     if (-d "$this->{root}/etc/init.d") {
         return $this->{initsys} = INIT_SYSTEMV;
     }
