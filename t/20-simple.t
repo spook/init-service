@@ -23,7 +23,7 @@ SKIP: {
     my $svc_prr = ["/bin/echo this is the prerun command", 
                    "/bin/true 1 2 3"];
     my $svc_dmn = "/tmp/$svc_nam.sh";
-    my $svc_run = "$svc_dmn a b c";
+    my $svc_run = "$svc_dmn 'a' \"b c\"";   # Has single & double quotes
     my $svc_por = ["/bin/true 99", 
                    "/bin/echo Doing my post-run sequence", 
                    "/bin/echo Ta da, I am done"];
