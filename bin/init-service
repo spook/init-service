@@ -22,9 +22,10 @@ GetOptions($opts,
             ) or usage("*** Command options error", 1);
 usage(q{}, 0) if $opts->{help};
 my $func = lc $ARGV[0] || q{};
+   $func = "status" if $func eq "show";
 my $name = $ARGV[1]    || q{};
 usage("*** Provide both a function and service name", 1) 
-    unless (@ARGV >= 2) || ((@ARGV >= 1) && ($func eq 'show'));
+    unless (@ARGV >= 2) || ((@ARGV >= 1) && ($func eq 'status'));
 usage("*** Extraneous parameters", 1)
     unless @ARGV <= 2;
 
@@ -36,13 +37,12 @@ $func eq 'enable'     ? $svc->enable($name)            :
 $func eq 'is-enabled' ? is_enabled($svc, $name, $opts) :
 $func eq 'is-running' ? is_running($svc, $name, $opts) :
 $func eq 'remove'     ? $svc->remove($name)            :
-$func eq 'show'       ? do_show()                      :
 $func eq 'start'      ? $svc->start($name)             :
 $func eq 'status'     ? do_status($svc, $name, $opts)  :
 $func eq 'stop'       ? $svc->stop($name)              :
 usage("*** Unknown function '$func'", 1);
 die "*** " . $svc->error . "\n" if $svc->error;
-print "Done\n" if $opts->{verbose} && ($func ne "show") && ($func ne "status");
+print "Done\n" if $opts->{verbose} && ($func ne "status");
 exit 0;
 
 #                           ------- o -------
@@ -51,7 +51,6 @@ sub usage {
     print STDERR q{Usage: init-service FUNCTION [SVCNAME [options...]]
 
   Functions:
-    show    - Show what init system is on this host
     start   - Runs the service; if already running, an error is emitted
     stop    - Stops a running service; if not running, an error is emitted
     restart - Stops then starts a service
@@ -60,7 +59,8 @@ sub usage {
     disable - Make service not start at boot; does not affect current state
     add     - Create (define) the service on the system
     remove  - Makes service unknown to the system; will stop and disable first
-    status  - Displays the status of the service
+    status  - Displays status of the service; without SVCNAM show init system
+    show    - Alias for status
     is-running - Check if running now (use in scripts)
     is-enabled - Check if enabled at boot (use in scripts)
 
@@ -103,14 +103,14 @@ sub do_add {
              );
 }
 
-sub do_show {
-    print $svc->initsys() . "\n";
-}
-
 sub do_status {
     my $svc  = shift;
     my $name = shift;
     my $opts = shift;
+    if (!$name) {
+        print $svc->initsys() . "\n";
+        exit($svc->error() ? 255 : 0);
+    }
     $svc->load(-name => $name);
     die "*** " . $svc->error . "\n" if $svc->error;
     print "Service:   " . $svc->name . "\n";
