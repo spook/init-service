@@ -8,6 +8,12 @@ use Init::Service;
 my $NTESTS = 87;
 plan tests => $NTESTS;
 
+sub dq {    # de-quote for easier comparisons
+    my $c = shift;
+    $c =~ s{['"]+}{}mg;
+    return $c;
+}
+
 # All these tests require root (TODO: or an alternate file system root)
 SKIP: {
     skip "*** These tests must be run as root", $NTESTS
@@ -70,7 +76,7 @@ SKIP: {
     is $svc->error, q{}, "add() service status";
     is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@prr,    $svc_prr,   "  PreRun correct";
-    is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
+    is dq($svc->runcmd),dq($svc_run),"  RunCmd correct";
     is_deeply \@por,    $svc_por,   "  PostRun correct";
     is $svc->title(),   $svc_ttl,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
@@ -88,7 +94,7 @@ SKIP: {
     is $svc->error, q{}, "load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@prr,    $svc_prr,   "  PreRun correct";
-    is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
+    is dq($svc->runcmd),dq($svc_run),"  RunCmd correct";
     is_deeply \@por,    $svc_por,   "  PostRun correct";
     is $svc->title(),   $svc_ttl,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
@@ -114,7 +120,7 @@ SKIP: {
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@prr,    $svc_prr,   "  PreRun correct";
-    is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
+    is dq($svc->runcmd),dq($svc_run),"  RunCmd correct";
     is_deeply \@por,    $svc_por,   "  PostRun correct";
     is $svc->title(),   $svc_ttl,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
@@ -140,7 +146,7 @@ SKIP: {
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@prr,    $svc_prr,   "  PreRun correct";
-    is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
+    is dq($svc->runcmd),dq($svc_run),"  RunCmd correct";
     is_deeply \@por,    $svc_por,   "  PostRun correct";
     is $svc->title(),   $svc_ttl,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
@@ -166,7 +172,7 @@ SKIP: {
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@prr,    $svc_prr,   "  PreRun correct";
-    is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
+    is dq($svc->runcmd),dq($svc_run),"  RunCmd correct";
     is_deeply \@por,    $svc_por,   "  PostRun correct";
     is $svc->title(),   $svc_ttl,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
@@ -176,7 +182,7 @@ SKIP: {
     # Look for it on the system
     sleep 1;    # give it time to start, if system is busy
     my $out
-        = qx(ps --no-header wax | /bin/grep -v grep | /bin/grep '$svc_run' 2>&1);
+        = qx(ps --no-header wax | /bin/grep -v grep | /bin/grep '$svc_dmn' 2>&1);
     isnt $out, q{}, "  Service found on system";
 
     # Stop it
@@ -198,7 +204,7 @@ SKIP: {
     is $svc->error, q{}, "re-load() status";
     is $svc->name(),    $svc_nam,   "  Name correct";
     is_deeply \@prr,    $svc_prr,   "  PreRun correct";
-    is $svc->runcmd(),  $svc_run,   "  RunCmd correct";
+    is dq($svc->runcmd),dq($svc_run),"  RunCmd correct";
     is_deeply \@por,    $svc_por,   "  PostRun correct";
     is $svc->title(),   $svc_ttl,   "  Title correct";
     is $svc->type(),    $svc_typ,   "  Type correct";
