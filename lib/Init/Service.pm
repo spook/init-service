@@ -180,7 +180,7 @@ sub _deduce_initsys {
     # Look for systemd
     my $ps_out = qx(ps -p 1 --no-headers -o comm 2>&1)
         || q{};    # 'comm' walks symlinks
-    if (   -d "$this->{root}/lib/systemd"
+    if (   (-d "$this->{root}/lib/systemd" || -d "$this->{root}/usr/lib/systemd")
         && -d "$this->{root}/etc/systemd"
         && $ps_out =~ m{\bsystemd\b})
     {
@@ -264,7 +264,7 @@ package Init::Service::unknown;
 our $VERSION = $Init::Service::VERSION;
 our @ISA     = qw/Init::Service/;
 
-# Unknown initsys always returns the error set in the constructor
+# Unknown initsys - return the error set in the constructor
 sub add     {return shift->{err};}
 sub disable {return shift->{err};}
 sub enable  {return shift->{err};}
@@ -296,7 +296,9 @@ sub add {
         if !$name || !$runcmd;
 
     # Create unit file
-    my $initfile = $this->{initfile} = "$this->{root}/lib/systemd/system/$name.service";
+    my $base = -d "$this->{root}/lib/systemd" ? "$this->{root}/lib/systemd" 
+                                              : "$this->{root}/usr/lib/systemd";
+    my $initfile = $this->{initfile} = "$base/system/$name.service";
     return $this->{err} = "Service exists: $name"
         if -e $initfile && !$opts{force};
     open(UF, '>', $initfile)
@@ -390,7 +392,9 @@ sub load {
     $this->{poststop} = [];
     $this->{running}  = 0;
     $this->{on_boot}  = 0;
-    $this->{initfile} = "$this->{root}/lib/systemd/system/$name.service";
+    my $base = -d "$this->{root}/lib/systemd" ? "$this->{root}/lib/systemd" 
+                                              : "$this->{root}/usr/lib/systemd";
+    $this->{initfile} = "$base/system/$name.service";
 
     my $loadstate = "unknown";
     my @lines     = qx(systemctl show $name.service 2>&1);
@@ -457,7 +461,9 @@ sub remove {
     $this->disable();
 
     # Now remove the unit file(s)
-    my $initfile = "$this->{root}/lib/systemd/system/$name.service";
+    my $base = -d "$this->{root}/lib/systemd" ? "$this->{root}/lib/systemd" 
+                                              : "$this->{root}/usr/lib/systemd";
+    my $initfile = "$base/system/$name.service";
     return $this->{err} = "No such service $name"
         if !-e $initfile && !$opts{force};
     my $n = unlink $initfile;
