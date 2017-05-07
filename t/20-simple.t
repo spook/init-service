@@ -43,6 +43,10 @@ SKIP: {
         or die "*** Cannot create daemon script $svc_dmn: $!";
     print D "#!/bin/sh\n";
     print D "echo \$\$ > /var/run/$svc_nam.pid\n";
+    print D "echo \"Given \$# args\"\n";
+    print D "echo \"Arg 1 is '\$1'\"\n";
+    print D "echo \"Arg 2 is '\$2'\"\n";
+    print D "echo -e \"This\\nis\\nMultiline\"\n";
     print D "sleep 1\n";
     print D "echo Got \$*\n";
     print D "sleep 28\n";
