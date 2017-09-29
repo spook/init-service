@@ -1,15 +1,16 @@
 # init-service
 Regardless of whether you use SysV, upstart, or systemd as your init system,
-this command makes it easy to add/remove, enable/disable for boot, start/stop,
-and check status on your system services.  
+this utility makes it easy to add/remove, enable/disable for boot, start/stop,
+and check status on your system services.  A command line and a Perl module
+are included, so you can do it from the CLI, or from within your package.
 
 You no longer need to write init.d scripts, upstart .conf files, nor systemd
-unit files!  This command handles the creation/removal of the init file for
-your service and the management of the underlying init system so your service
+unit files!  This utility handles the creation/removal of the init file for
+your service and the management of the underlying init system, so your service
 is started or not at boot, can be started or stopped immediately, and also to
 check status on your service.
 
-You must be root to use this command.
+You must be root to use the command.
 
 ## Synopsys
 
