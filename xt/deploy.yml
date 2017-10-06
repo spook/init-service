@@ -7,7 +7,7 @@
     copy: 
       src:  "{{ item }}"
       dest: /home/steve/
-    with_fileglob: "/home/steve/dvo/service/Init-Service-*.tar.gz"
+    with_fileglob: "/home/steve/dvo/init-service/Init-Service-*.tar.gz"
     register: tarballs
 
   - name: unpack tarball

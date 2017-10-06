@@ -1604,7 +1604,7 @@ Uncle Spook, C<< <spook at MisfitMountain.org> >>
 =head1 BUGS & SUPPORT
 
 Please report any bugs or feature requests via the GitHub issue
-tracker at https://github.com/spook/service/issues .
+tracker at https://github.com/spook/init-service/issues .
 
 You can find documentation for this module with the perldoc command.
 
@@ -1623,7 +1623,7 @@ or via its man pages:
 This program is released under the following license: MIT
 
 Copyright 2017 Uncle Spook.
-See https://github.com/spook/service
+See https://github.com/spook/init-service
 
 Permission is hereby granted, free of charge, to any person obtaining a
 copy of this software and associated documentation files (the "Software"),
