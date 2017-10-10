@@ -1477,7 +1477,13 @@ used to start the service.
 
 =head2 C<initsys>
 
-Returns the name of the init system in use.
+Returns the name of the init system style we'll in use.
+
+Note that this is the style we'll work with, not necessarily the 
+actual init system that was run at startup.  For example, older 
+versions of upstart (<0.6) only knew how to run SysVinit scripts;
+for those we'll use SysVinit scripts even though upstart is running.
+
 Possible values are 'unknown', 'SysVinit', 'upstart', or 'systemd'.
 
 =head2 C<name>
