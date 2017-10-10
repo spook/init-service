@@ -4,7 +4,7 @@ use 5.8.0;
 use strict;
 use warnings;
 
-our $VERSION = '2017.03.13';
+our $VERSION = '2017.10.13';
 
 use constant ERR_OK       => q{};
 use constant INIT_UNKNOWN => "unknown";
@@ -177,17 +177,19 @@ sub _ckopts {
 sub _deduce_initsys {
     my $this = shift;
 
-    # Look for systemd
-    my $ps_out = qx(ps -p 1 --no-headers -o comm 2>&1)
-        || q{};    # 'comm' walks symlinks
-    if (   (-d "$this->{root}/lib/systemd" || -d "$this->{root}/usr/lib/systemd")
+    # Look for systemd - quick way first, more thorough second
+    if (-e "$this->{root}/bin/systemctl") {
+        return $this->{initsys} = INIT_SYSTEMD;
+    }
+    my $ps_out = qx(ps -p 1 --no-headers -o comm 2>&1) || q{};    # 'comm' walks symlinks
+    if (  (-d "$this->{root}/lib/systemd" || -d "$this->{root}/usr/lib/systemd")
         && -d "$this->{root}/etc/systemd"
         && $ps_out =~ m{\bsystemd\b})
     {
         return $this->{initsys} = INIT_SYSTEMD;
     }
 
-    # Look for upstart
+    # Look for *newer* upstart's (0.6+) - old ones will still use SysV style
     my $init_ver = qx($this->{root}/sbin/init --version 2>&1) || q{};
     if (-d "$this->{root}/etc/init"
         && $init_ver =~ m{\bupstart\b})
