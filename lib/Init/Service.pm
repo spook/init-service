@@ -121,12 +121,14 @@ sub new {
 
     # Create or load on new
     $this->add()  if $opts{name} &&  $opts{runcmd};
+    return $this  if $this->{err};
     $this->load() if $opts{name} && !$opts{runcmd};
+    return $this  if $this->{err};
 
     # Enabled or started on new?
     $this->enable() if !$this->error && $opts{name} && $opts{enable};
+    return $this    if $this->{err};
     $this->start()  if !$this->error && $opts{name} && $opts{start};
-
     return $this;
 }
 
@@ -160,11 +162,11 @@ sub _ckopts {
         my $v = shift || q{};                  # Want to use // but Perl 5.8
         $k = $ALIAS_LIST{$k} || $k;            # De-alias
         if (!exists $vops->{$k}) {
-            $this->{err} = "$func: bad option $k";
+            $this->{err} = "$func: bad option '$k'";
             return ();
         }
         if ((ref($vops->{$k}) eq "CODE") && (my $err = $vops->{$k}->(\$v))) {
-            $this->{err} = "$func: bad value for $k: $err";
+            $this->{err} = "$func: bad value for '$k': $err";
             return ();
         }
         $opts{$k} = $v;
