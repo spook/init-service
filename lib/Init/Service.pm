@@ -43,6 +43,7 @@ use constant OPTS_NEW => {
     poststop => \&_ok_cmdlist,   # stopaft
     enable   => 0,
     start    => 0,
+    depends  => \&_ok_name_list,
 };
 use constant OPTS_ADD => {
     DEFAULT  => "name",
@@ -57,6 +58,7 @@ use constant OPTS_ADD => {
     poststop => \&_ok_cmdlist,   # stopaft
     enable   => 0,
     start    => 0,
+    depends  => \&_ok_name_list,
     force    => 0,
 };
 use constant OPTS_ENA => {
@@ -107,6 +109,7 @@ sub new {
         postrun  => [],                   # post-Commands; executable and arguments
         prestop  => [],                   # pre-stop commands
         poststop => [],                   # post-stop commands
+        depends  => [],                   # depends-upon service names
         on_boot  => 0,                    # Will start on boot
         started  => 0,                    # Running now
     };
@@ -226,6 +229,16 @@ sub _ok_initsys {
 
 sub _ok_name {
     my $vp = shift;
+    $$vp =~ s{^\s*(.+?)\s*}{$1};    # trim
+    return "empty"                  if $$vp eq q{};
+    return "too long, max 64 chars" if length($$vp) > 64;
+    return "only a-zA-z0-9.-_\@:"   if $$vp !~ m/^[\w\-\.\@\:]+$/i;
+    return ERR_OK;
+}
+
+sub _ok_name_list {
+    my $vp = shift;
+### WORKING HERE XXX
     $$vp =~ s{^\s*(.+?)\s*}{$1};    # trim
     return "empty"                  if $$vp eq q{};
     return "too long, max 64 chars" if length($$vp) > 64;

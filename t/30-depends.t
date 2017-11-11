@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 use Init::Service;
 
-my $NTESTS = 87;
+my $NTESTS = 71;
 plan tests => $NTESTS;
 
 sub dq {    # de-quote for easier comparisons
@@ -16,7 +16,7 @@ sub dq {    # de-quote for easier comparisons
 
 # All these tests require root (TODO: or an alternate file system root)
 SKIP: {
-    skip "*** These tests must be run as root", $NTESTS
+    skip "*** Test must run as root", $NTESTS
         if $>;
 
     # Make the daemon script
@@ -66,7 +66,7 @@ SKIP: {
         type     => $svc_b_typ,
         runcmd   => $svc_b_run,
         title    => $svc_b_ttl,
-#        depends  => $svc_a_nam  # Depends on A
+        depends  => $svc_a_nam  # Depends on A  *** This is the thing we're testing ***
     );
     BAIL_OUT "Cannot add service B to system: " . $svc_b->error if $svc_b->error;
     ok 1, "Service A added to system";
@@ -154,8 +154,30 @@ SKIP: {
     ok !$svc_a->running, "  A is not running";
     ok !$svc_b->running, "  B is not running";
 
-    # Given A and B are running, when I kill A, then B is stopped (except SysVinit)
-#TODO...
+    note "--- Given A and B are running, when I kill A, ";
+    note "    then B is stopped (except for SysVinit)";
+    SKIP: {
+        skip "Service monitoring not supported by SysV", 13
+            if $svc_a->initsys eq Init::Service::INIT_SYSTEMV;
+
+        # Given...
+        is $svc_a->stop(), q{}, "  Reset A";
+        is $svc_b->stop(), q{}, "  Reset B";
+        is $svc_a->start(), q{}, "  Start A";
+        is $svc_b->start(), q{}, "  Start B";
+        is $svc_a->load(), q{}, "  Reload A";   # reload to be sure of status
+        is $svc_b->load(), q{}, "  Reload B";   # reload to be sure of status
+        ok $svc_a->running, "  A is running";
+        ok $svc_b->running, "  B is running";
+        # when...
+        qx(killall -9 $svc_a_nam.sh);
+        is $?, 0, "  Kill A";
+        # then...
+        is $svc_a->load(), q{}, "  Reload A";   # reload to be sure of status
+        is $svc_b->load(), q{}, "  Reload B";   # reload to be sure of status
+        ok !$svc_a->running, "  A is not running";
+        ok !$svc_b->running, "  B is not running";
+    }
 
     # Remove dummy services
     note "--- Cleanup ---";
