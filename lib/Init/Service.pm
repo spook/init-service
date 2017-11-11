@@ -109,7 +109,7 @@ sub new {
         postrun  => [],                   # post-Commands; executable and arguments
         prestop  => [],                   # pre-stop commands
         poststop => [],                   # post-stop commands
-        depends  => [],                   # depends-upon service names
+        depends  => [],                   # depends-upon service names, scalar or list
         on_boot  => 0,                    # Will start on boot
         started  => 0,                    # Running now
     };
@@ -238,11 +238,12 @@ sub _ok_name {
 
 sub _ok_name_list {
     my $vp = shift;
-### WORKING HERE XXX
-    $$vp =~ s{^\s*(.+?)\s*}{$1};    # trim
-    return "empty"                  if $$vp eq q{};
-    return "too long, max 64 chars" if length($$vp) > 64;
-    return "only a-zA-z0-9.-_\@:"   if $$vp !~ m/^[\w\-\.\@\:]+$/i;
+    my @list = ref $$vp? @$$vp : ($$vp);
+    foreach my $name (@list) {
+        my $err = _ok_name(\$name);
+        return $err if $err;
+        }
+    $$vp = \@list;
     return ERR_OK;
 }
 
@@ -309,6 +310,7 @@ sub add {
     my $postrun  = $this->{postrun};
     my $prestop  = $this->{prestop};
     my $poststop = $this->{prestop};
+    my $depends  = $this->{depends};
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
 
@@ -322,7 +324,14 @@ sub add {
         or return $this->{err} = "Cannot create init file $initfile: $!";
     print UF "[Unit]\n";
     print UF "Description=$title\n";
+    foreach my $dep (@$depends) {
+        print UF "Requisite=$dep.service\n";
+#        print UF "BindsTo=$dep.service\n";
+    }
     print UF "After=network.target syslog.target\n";
+    foreach my $dep (@$depends) {
+        print UF "After=$dep.service\n";
+    }
 
     print UF "\n";
     print UF "[Service]\n";

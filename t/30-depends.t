@@ -29,7 +29,7 @@ SKIP: {
     open D, ">", $svc_a_dmn
         or die "*** Cannot create daemon script $svc_a_dmn: $!";
     print D "#!/bin/sh\n";
-    print D "sleep 5\n";
+    print D "sleep 13\n";
     print D "rm /var/run/$svc_a_nam.pid\n";
     print D "exit 0\n";
     close D;
@@ -54,7 +54,7 @@ SKIP: {
     open D, ">", $svc_b_dmn
         or die "*** Cannot create daemon script $svc_b_dmn: $!";
     print D "#!/bin/sh\n";
-    print D "sleep 5\n";
+    print D "sleep 13\n";
     print D "rm /var/run/$svc_b_nam.pid\n";
     print D "exit 0\n";
     close D;
@@ -69,8 +69,7 @@ SKIP: {
         depends  => $svc_a_nam  # Depends on A  *** This is the thing we're testing ***
     );
     BAIL_OUT "Cannot add service B to system: " . $svc_b->error if $svc_b->error;
-    ok 1, "Service A added to system";
-
+    ok 1, "Service B added to system";
 
     note "--- Given A and B are stopped, when I start A,";
     note "    then A is running and B remains stopped";
@@ -91,7 +90,7 @@ SKIP: {
     is $svc_a->stop(), q{}, "  Reset A";
     is $svc_b->stop(), q{}, "  Reset B";
     # when...
-    like $svc_b->start(), qr{error}, "  Tried to start B, get expected error";
+    like $svc_b->start(), qr{fail}, "  Tried to start B, get expected error";
     # then...
     is $svc_a->load(), q{}, "  Reload A";   # reload to be sure of status
     is $svc_b->load(), q{}, "  Reload B";   # reload to be sure of status
@@ -170,8 +169,9 @@ SKIP: {
         ok $svc_a->running, "  A is running";
         ok $svc_b->running, "  B is running";
         # when...
-        qx(killall -9 $svc_a_nam.sh);
+        qx(killall -1 $svc_a_nam.sh);
         is $?, 0, "  Kill A";
+        sleep 1;
         # then...
         is $svc_a->load(), q{}, "  Reload A";   # reload to be sure of status
         is $svc_b->load(), q{}, "  Reload B";   # reload to be sure of status
