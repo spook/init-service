@@ -509,6 +509,7 @@ sub remove {
     $this->{postrun}  = [];
     $this->{prestop}  = [];
     $this->{poststop} = [];
+    $this->{depends}  = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
     $this->{initfile} = q{};
@@ -665,7 +666,7 @@ sub _enadis {
     if ($enable) {
         my $depsup = q{};
         my $depsdn = q{};
-        foreach my $name (@$this->{depends}) {
+        foreach my $name (@{$this->{depends}}) {
             $depsup .= " and started $name";
             $depsdn .= " or stopping $name";
         }
@@ -855,6 +856,7 @@ sub remove {
     $this->{postrun}  = [];
     $this->{prestop}  = [];
     $this->{poststop} = [];
+    $this->{depends}  = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
     $this->{initfile} = q{};
@@ -1366,6 +1368,7 @@ sub remove {
     $this->{postrun}  = [];
     $this->{prestop}  = [];
     $this->{poststop} = [];
+    $this->{depends}  = [];
     $this->{title}    = q{};
     $this->{type}     = q{};
     $this->{initfile} = q{};
@@ -1727,3 +1730,4 @@ OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 SOFTWARE.
 
 =cut
+
