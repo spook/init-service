@@ -20,7 +20,7 @@ SKIP: {
         if $>;
 
     # Make the daemon script
-    note "--- Create dummy service A ---";
+    diag "--- Create dummy service A ---";
     my $svc_a_nam = "test-030-a";
     my $svc_a_dmn = "/tmp/$svc_a_nam.sh";
     my $svc_a_run = "$svc_a_dmn";
@@ -45,7 +45,7 @@ SKIP: {
     BAIL_OUT "Cannot add service A to system: " . $svc_a->error if $svc_a->error;
     ok 1, "Service A added to system";
 
-    note "--- Create dummy service B ---";
+    diag "--- Create dummy service B ---";
     my $svc_b_nam = "test-030-b";
     my $svc_b_dmn = "/tmp/$svc_b_nam.sh";
     my $svc_b_run = "$svc_b_dmn";
@@ -71,8 +71,8 @@ SKIP: {
     BAIL_OUT "Cannot add service B to system: " . $svc_b->error if $svc_b->error;
     ok 1, "Service B added to system";
 
-    note "--- Given A and B are stopped, when I start A,";
-    note "    then A is running and B remains stopped";
+    diag "--- Given A and B are stopped, when I start A,";
+    diag "    then A is running and B remains stopped";
     # Given...
     is $svc_a->stop(), q{}, "  Reset A";
     is $svc_b->stop(), q{}, "  Reset B";
@@ -84,8 +84,8 @@ SKIP: {
     ok $svc_a->running,  "  A is running";
     ok !$svc_b->running, "  B is not running";
 
-    note "--- Given A and B are stopped, when I start B, ";
-    note "    I get an error that A must be running first";
+    diag "--- Given A and B are stopped, when I start B, ";
+    diag "    I get an error that A must be running first";
     # Given...
     is $svc_a->stop(), q{}, "  Reset A";
     is $svc_b->stop(), q{}, "  Reset B";
@@ -98,7 +98,7 @@ SKIP: {
     ok !$svc_b->running, "  B is not running";
 
 
-    note "--- Given A is running, when I start B, it starts normally";
+    diag "--- Given A is running, when I start B, it starts normally";
     # Given...
     is $svc_a->stop(), q{}, "  Reset A";
     is $svc_b->stop(), q{}, "  Reset B";
@@ -115,8 +115,8 @@ SKIP: {
     ok $svc_a->running, "  A is running";
     ok $svc_b->running, "  B is running";
 
-    note "--- Given A and B are running, when I stop B, ";
-    note "    it stops normally and A continues";
+    diag "--- Given A and B are running, when I stop B, ";
+    diag "    it stops normally and A continues";
     # Given...
     is $svc_a->stop(), q{}, "  Reset A";
     is $svc_b->stop(), q{}, "  Reset B";
@@ -134,8 +134,8 @@ SKIP: {
     ok $svc_a->running,  "  A is running";
     ok !$svc_b->running, "  B is not running";
 
-    note "--- Given A and B are running, when I stop A, ";
-    note "    first B is stopped then A stops";
+    diag "--- Given A and B are running, when I stop A, ";
+    diag "    first B is stopped then A stops";
     # Given...
     is $svc_a->stop(), q{}, "  Reset A";
     is $svc_b->stop(), q{}, "  Reset B";
@@ -153,8 +153,8 @@ SKIP: {
     ok !$svc_a->running, "  A is not running";
     ok !$svc_b->running, "  B is not running";
 
-    note "--- Given A and B are running, when I kill A, ";
-    note "    then B is stopped (except for SysVinit)";
+    diag "--- Given A and B are running, when I kill A, ";
+    diag "    then B is stopped (except for SysVinit)";
     SKIP: {
         skip "Service monitoring not supported by SysV", 13
             if $svc_a->initsys eq Init::Service::INIT_SYSTEMV;
@@ -180,7 +180,7 @@ SKIP: {
     }
 
     # Remove dummy services
-    note "--- Cleanup ---";
+    diag "--- Cleanup ---";
     $svc_b->remove;
     unlink $svc_b_dmn;
     is $svc_b->error, q{}, "Service B removed";
