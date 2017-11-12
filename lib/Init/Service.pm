@@ -873,7 +873,8 @@ sub start {
     my $name = $this->{name};
 
     my $out = qx(start $this->{name} 2>&1);
-    return $this->{err} = "Cannot start $name: $!\n\t$out"
+    $? = 0 if $out =~ m{already running};
+    return $this->{err} = "Cannot start $name: ($!) $out"
         if $?;
     $this->{running} = 1;
     return $this->{err} = ERR_OK;
@@ -887,7 +888,8 @@ sub stop {
     my $name = $this->{name};
 
     my $out = qx(stop $name 2>&1);
-    return $this->{err} = "Cannot stop $name: $!\n\t$out"
+    $? = 0 if $out =~ m{Unknown instance};
+    return $this->{err} = "Cannot stop $name: ($!) $out"
         if $?;
     $this->{running} = 0;
     return $this->{err} = ERR_OK;

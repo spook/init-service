@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 use Init::Service;
 
-my $NTESTS = 87;
+my $NTESTS = 90;
 plan tests => $NTESTS;
 
 sub dq {    # de-quote for easier comparisons
@@ -189,6 +189,9 @@ SKIP: {
         = qx(ps --no-header wax | /bin/grep -v grep | /bin/grep '$svc_dmn' 2>&1);
     isnt $out, q{}, "  Service found on system";
 
+    # Start it again, should be a no-op
+    is $svc->start(), q{}, "Start it again";
+
     # Stop it
     diag "";
     diag "--- Stop the dummy service ---";
@@ -215,6 +218,9 @@ SKIP: {
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled for boot";
 
+    # Stop it again, should be a no-op
+    is $svc->stop(), q{}, "Stop it again";
+
     # Remove it
     diag "";
     diag "--- Remove the dummy service ---";
@@ -236,6 +242,9 @@ SKIP: {
     is $svc->type(),    q{}, "  Type empty";
     ok !$svc->running(), "  Not running";
     ok !$svc->enabled(), "  Not enabled";
+
+    # Remove it again, should complain
+    like $svc->remove($svc_nam), qr{No such service}, "Remove it again";
 
     # Remove dummy daemon
     unlink $svc_dmn;
