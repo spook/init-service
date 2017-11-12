@@ -573,7 +573,7 @@ sub add {
     my $predep = q{};
     foreach my $name (@$depends) {
         $predep .= "    # Depends\n" unless $predep;
-        $predep .= "    if ! service $name status 2>/dev/null; then "
+        $predep .= "    if ! service $name status 2>/dev/null | grep -q running; then "
                  . "echo 'Failed dependency on service' $name; exit 1; fi\n";
     }
     $predep .= "    # End Depends\n" if $predep;
@@ -611,6 +611,14 @@ sub add {
         print UF "    $cmd\n";
     }
     print UF "end script\n" if @$poststop;
+
+    # Add a stop on clause
+    my $depsdn = q{};
+    foreach my $name (@{$this->{depends}}) {
+        $depsdn .= " or stopping $name";
+    }
+    print UF "stop  on runlevel [!2345]$depsdn\n";      # TODO map runlevels somehow
+
     close UF;
     chmod 0644, $initfile
         or return $this->{err} = "Cannot chmod 644 file $initfile: $!";
@@ -650,29 +658,33 @@ sub _enadis {
     my $enable = shift;
     my $name   = $this->{name};
 
-    # Inhale the file line by line, removing any existing start on / stop on clauses
+    # Inhale the file line by line, removing any existing start on clauses
     my $contents = q{};
     my $initfile = $this->{initfile} || "$this->{root}/etc/init/$name.conf";
     open(UF, '<', $initfile)
         or return $this->{err} = "Cannot open unit file $initfile: $!";
     while (my $line = <UF>) {
         next if $line =~ m{^\s*start\b}i;
-        next if $line =~ m{^\s*stop\b}i;
         $contents .= $line;
     }
     close UF;
 
-    # If we want to be enabled, add those clauses
+    # Prep some stuff for depends
+    my $depsup = q{};
+    my $depsdn = q{};
+    foreach my $name (@{$this->{depends}}) {
+        $depsup .= " and started $name";
+        $depsdn .= " or stopping $name";
+    }
+
+    # If we want to be enabled, add a start on clause
     if ($enable) {
         my $depsup = q{};
-        my $depsdn = q{};
         foreach my $name (@{$this->{depends}}) {
             $depsup .= " and started $name";
-            $depsdn .= " or stopping $name";
         }
         $contents .= "\n";
-        $contents .= "start on runlevel [2345]$depsup\n";     # TODO map this somehow
-        $contents .= "stop  on runlevel [!2345]$depsdn\n";    # TODO map this somehow
+        $contents .= "start on runlevel [2345]$depsup\n";   # TODO map runlevels somehow
     }
 
     # Rewrite it to a temp, then rename into place (it's an atomic operation)
