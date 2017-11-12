@@ -5,7 +5,7 @@ use warnings;
 use Test::More;
 use Init::Service;
 
-my $NTESTS = 71;
+my $NTESTS = 82;
 plan tests => $NTESTS;
 
 sub dq {    # de-quote for easier comparisons
@@ -70,6 +70,27 @@ SKIP: {
     );
     BAIL_OUT "Cannot add service B to system: " . $svc_b->error if $svc_b->error;
     ok 1, "Service B added to system";
+
+    diag "--- Test read-back of service with depends ---";
+    # Reload, check if disabled
+    my $svc = Init::Service->new();    # make new object
+    ok $svc, "New object to check above";
+    is $svc->load($svc_b_nam), q{}, "  re-load";
+    my @prr = $svc->prerun();
+    my @por = $svc->postrun();
+    my @prs = $svc->prestop();
+    my @pos = $svc->poststop();
+    my @dep = $svc->depends();
+    is $svc->name(),    $svc_b_nam,      "  Name correct";
+    is_deeply \@prr,    [],              "  PreRun correct";
+    is dq($svc_b->runcmd),dq($svc_b_run),"  RunCmd correct";
+    is_deeply \@por,    [],              "  PostRun correct";
+    is $svc->title(),   $svc_b_ttl,      "  Title correct";
+    is $svc->type(),    $svc_b_typ,      "  Type correct";
+    is_deeply \@dep,    [$svc_a_nam],    "  Depends list correct";
+    ok !$svc->running(), "  Not running";
+    ok !$svc->enabled(), "  Not enabled for boot";
+
 
     diag "--- Given A and B are stopped, when I start A,";
     diag "    then A is running and B remains stopped";

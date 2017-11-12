@@ -262,6 +262,7 @@ sub _ok_type {
 }
 
 # Accessors
+sub depends  {return @{shift->{depends}};}
 sub enabled  {return shift->{on_boot};}
 sub error    {return shift->{err};}
 sub initfile {return shift->{initfile};}
@@ -416,6 +417,7 @@ sub load {
     $this->{postrun}  = [];
     $this->{prestop}  = [];
     $this->{poststop} = [];
+    $this->{depends}  = [];
     $this->{running}  = 0;
     $this->{on_boot}  = 0;
     my $base = -d "$this->{root}/lib/systemd" ? "$this->{root}/lib/systemd" 
@@ -465,6 +467,11 @@ sub load {
             push @{$this->{poststop}}, $v;
             next;
         }
+        if ($k eq 'Requisite') {
+            push @{$this->{depends}}, map {m{^(\S+)\.service$}} split(/\s+/, $v);
+            next;
+        }
+
         $this->{type}    = $v if  $k eq 'Type';
         $this->{title}   = $v if  $k eq 'Description';
         $this->{running} = 1  if ($k eq 'SubState')      && ($v =~ m/running/i);
@@ -557,8 +564,18 @@ sub add {
     my $postrun  = $this->{postrun};
     my $prestop  = $this->{prestop};
     my $poststop = $this->{prestop};
+    my $depends  = $this->{depends};
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
+
+    # Depends handling - do as pre-start script check
+    my $predep = q{};
+    foreach my $name (@$depends) {
+        $predep .= "    # Depends\n" unless $predep;
+        $predep .= "    if ! service $name status 2>/dev/null; then "
+                 . "echo 'Failed dependency on service' $name; exit 1; fi\n";
+    }
+    $predep .= "    # End Depends\n" if $predep;
 
     # Create conf file
     my $initfile = $this->{initfile} = "$this->{root}/etc/init/$name.conf";
@@ -568,11 +585,12 @@ sub add {
         or return $this->{err} = "Cannot create init file $initfile: $!";
     print UF "# upstart init script for the $name service\n";
     print UF "description  \"$title\"\n";
-    print UF "pre-start script\n" if @$prerun;
+    print UF "pre-start script\n" if @$prerun || $predep;
+    print UF $predep if $predep;
     foreach my $cmd (@$prerun) {
         print UF "    $cmd\n";
     }
-    print UF "end script\n" if @$prerun;
+    print UF "end script\n" if @$prerun || $predep;
     print UF "exec $runcmd\n";
     print UF "post-start script\n" if @$postrun;
     foreach my $cmd (@$postrun) {
@@ -645,9 +663,15 @@ sub _enadis {
 
     # If we want to be enabled, add those clauses
     if ($enable) {
+        my $depsup = q{};
+        my $depsdn = q{};
+        foreach my $name (@$this->{depends}) {
+            $depsup .= " and started $name";
+            $depsdn .= " or stopping $name";
+        }
         $contents .= "\n";
-        $contents .= "start on runlevel [2345]\n";     # TODO map this somehow
-        $contents .= "stop  on runlevel [!2345]\n";    # TODO map this somehow
+        $contents .= "start on runlevel [2345]$depsup\n";     # TODO map this somehow
+        $contents .= "stop  on runlevel [!2345]$depsdn\n";    # TODO map this somehow
     }
 
     # Rewrite it to a temp, then rename into place (it's an atomic operation)
@@ -678,6 +702,7 @@ sub load {
     $this->{postrun}  = [];
     $this->{prestop}  = [];
     $this->{poststop} = [];
+    $this->{depends}  = [];
     $this->{running}  = 0;
     $this->{on_boot}  = 0;
 
@@ -779,7 +804,19 @@ sub load {
     }
     close UF;
 
-    # then also run `service $name status` to read current state
+    # Dependent services are buried in the pre-run script; pull those out
+    if (@{$this->{prerun}} && ($this->{prerun}->[0] eq "# Depends")) {
+        while (1) {
+            last unless @{$this->{prerun}};
+            my $line = shift @{$this->{prerun}};
+            last unless $line;
+            last if $line eq "# End Depends";
+            next unless $line =~ m{if ! service (\S+) status};
+            push @{$this->{depends}}, $1;
+        }
+    }
+
+    # then also run `initctl status $name` to read current state
     # ex output:
     #   ssh start/running, process 12345
     #       -or-
@@ -1454,6 +1491,11 @@ When called with I<name> but NOT I<runcmd>, it will attempt to load() an existin
 Takes the same arguments as I<add()>.
 Remember to check the object for an error after creating it.
 
+=head2 C<depends>
+
+Returns a LIST of the depended-upon service names.
+Remember to call this in list context!
+
 =head2 C<prerun>
 
 Returns a LIST of the pre-run command(s) defined for the service.
@@ -1571,6 +1613,7 @@ You must provide at least the I<name> and I<runcmd> arguments to add a new servi
               postrun => ["/bin/foo-fix -x"],     # Optional post-start command(s)
               prestop => ["/bin/echo bye"],       # Optional pre-stop command(s)
               poststop => ["bin/rm /tmp/t3*"],    # Optional post-stop command(s)
+              depends => [$service1, $svc2],      # Optional list of prerequisite services
               enable  => 1,                       # Optional, enable to start at boot
               start   => 1,                       # Optional, start the service now
              );
@@ -1595,6 +1638,14 @@ passed as an array ref:
 Note: You cannot (yet) specify a shell script for any of the command options.
 They must be individual executables.  Script snippets are planned for the
 future.
+
+Dependent services you specify must be running already before this service
+can start, and if any of those are stopped then this service will be stopped
+first.  An errant stop of a dependent service, such as if it is killed,
+is not detected by the 'depends' logic and won't affect this service directly.
+
+The dependent services also imply startup and shutdown order: this service will
+start (if enabled) after the dependent services, and shutdown before them.
 
 To un-do an C<add()>, use C<remove()>.
 
