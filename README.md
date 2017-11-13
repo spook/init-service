@@ -36,7 +36,7 @@ Perl Fragment:
     my $service = Init::Service->new(
         name     => "thingd",
         title    => "Thing Daemon",
-        runcmd   => "/usr/binthingd -a -b3",
+        runcmd   => "/usr/bin/thingd -a -b3",
     );
     if ($service->error) { ... }
 
@@ -92,6 +92,8 @@ locations:
 
 
 ## Usage
+
+### Command Line
 ```
 Usage: init-service FUNCTION SVCNAME [options...]
 
@@ -125,6 +127,17 @@ Usage: init-service FUNCTION SVCNAME [options...]
 
     -p, -o, -P, -O may be repeated for multiple commands.
 ```
+### Perl POD
+
+Generate the latest manpages, markdown, test, etc from the embedded POD 
+in the [a Init::Service](lib/Init/Service.pm) module.  For example:
+
+    pod2markdown lib/Init/Service.pm > ./Init-Service.md
+        -or-
+    pod2man lib/Init/Service.pm > ./Init-Service.man
+
+A (usually) current markdown flavor of the Perl documentation is in 
+the [a Init-Service.md](Init-Service.md) file along side this README.md .
 
 ## Want to help?
 
