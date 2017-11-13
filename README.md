@@ -14,6 +14,8 @@ You must be root to use the command.
 
 ## Synopsys
 
+Command Line:
+
     # Define (create/add) a new system service called foo-daemon
     #   Set it to start on boot and also run it right now
     init-service add foo-daemon \
@@ -26,6 +28,17 @@ You must be root to use the command.
     init-service disable foo-daemon # Make it not start at boot
     init-service remove foo-daemon  # Remove it completly
     init-service status foo-daemon  # Show its status
+
+Perl Fragment:
+
+    use Init::Service;
+        . . .
+    my $service = Init::Service->new(
+        name     => "thingd",
+        title    => "Thing Daemon",
+        runcmd   => "/usr/binthingd -a -b3",
+    );
+    if ($service->error) { ... }
 
 ## Installation
 
