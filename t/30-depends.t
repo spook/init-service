@@ -14,6 +14,8 @@ sub dq {    # de-quote for easier comparisons
     return $c;
 }
 
+my $NOCLEAN = "@ARGV" =~ m{-nc};
+
 # All these tests require root (TODO: or an alternate file system root)
 SKIP: {
     skip "*** Test must run as root", $NTESTS
@@ -39,8 +41,8 @@ SKIP: {
     my $svc_a = Init::Service->new(
         name     => $svc_a_nam,
         type     => $svc_a_typ,
-        runcmd   => $svc_a_run,
         title    => $svc_a_ttl,
+        runcmd   => $svc_a_run,
     );
     BAIL_OUT "Cannot add service A to system: " . $svc_a->error if $svc_a->error;
     ok 1, "Service A added to system";
@@ -64,8 +66,8 @@ SKIP: {
     my $svc_b = Init::Service->new(
         name     => $svc_b_nam,
         type     => $svc_b_typ,
-        runcmd   => $svc_b_run,
         title    => $svc_b_ttl,
+        runcmd   => $svc_b_run,
         depends  => $svc_a_nam  # Depends on A  *** This is the thing we're testing ***
     );
     BAIL_OUT "Cannot add service B to system: " . $svc_b->error if $svc_b->error;
@@ -202,14 +204,20 @@ SKIP: {
 
     # Remove dummy services
     diag "--- Cleanup ---";
-    $svc_b->remove;
-    unlink $svc_b_dmn;
-    is $svc_b->error, q{}, "Service B removed";
-    
-    $svc_a->stop;
-    $svc_a->remove;
-    unlink $svc_a_dmn;
-    is $svc_a->error, q{}, "Service A removed";
+    if ($NOCLEAN) {
+        ok 1, "-nc (No Clean) option set, leaving service A and deamon";
+        ok 1, "-nc (No Clean) option set, leaving service B and deamon";
+    }
+    else {
+        $svc_b->remove;
+        unlink $svc_b_dmn;
+        is $svc_b->error, q{}, "Service B removed";
+        
+        $svc_a->stop;
+        $svc_a->remove;
+        unlink $svc_a_dmn;
+        is $svc_a->error, q{}, "Service A removed";
+    }
 }
 
 exit 0;

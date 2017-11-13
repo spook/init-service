@@ -130,14 +130,14 @@ Usage: init-service FUNCTION SVCNAME [options...]
 ### Perl POD
 
 Generate the latest manpages, markdown, test, etc from the embedded POD 
-in the [a Init::Service](lib/Init/Service.pm) module.  For example:
+in the [Init::Service](lib/Init/Service.pm) module.  For example:
 
     pod2markdown lib/Init/Service.pm > ./Init-Service.md
         -or-
     pod2man lib/Init/Service.pm > ./Init-Service.man
 
 A (usually) current markdown flavor of the Perl documentation is in 
-the [a Init-Service.md](Init-Service.md) file along side this README.md .
+the [Init-Service.md](Init-Service.md) file along side this README.md .
 
 ## Want to help?
 

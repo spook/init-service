@@ -14,6 +14,8 @@ sub dq {    # de-quote for easier comparisons
     return $c;
 }
 
+my $NOCLEAN = "@ARGV" =~ m{-nc};
+
 # All these tests require root (TODO: or an alternate file system root)
 SKIP: {
     skip "*** These tests must be run as root", $NTESTS
@@ -244,10 +246,13 @@ SKIP: {
     ok !$svc->enabled(), "  Not enabled";
 
     # Remove it again, should complain
-    like $svc->remove($svc_nam), qr{No such service}, "Remove it again";
-
-    # Remove dummy daemon
-    unlink $svc_dmn;
+    if ($NOCLEAN) {
+        ok 1, "-nc (No Clean) option set, leaving service and deamon";
+    }
+    else {
+        like $svc->remove($svc_nam), qr{No such service}, "Remove it again";
+        unlink $svc_dmn;    # Remove dummy daemon
+    }
 }
 
 exit 0;

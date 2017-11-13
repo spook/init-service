@@ -927,14 +927,22 @@ sub add {
     my $postrun  = $this->{postrun};
     my $prestop  = $this->{prestop};
     my $poststop = $this->{poststop};
+    my $depends  = $this->{depends};
     return $this->{err} = "Missing options; name and runcmd required"
         if !$name || !$runcmd;
 
-    my ($daemon, $dopts) = $runcmd =~ m/^\s*(\S+)\s+(.+)$/;
+    my ($daemon, $dopts) = split(/\s+/, $runcmd, 2);
+    $dopts ||= q{};
     $dopts =~ s{('+)}{'"$1"'}g; # protect singe-quote
     my $bgflag_ub = ($type eq "simple") || ($type eq "notify") ? "--background" : q{};
     my $bgflag_rh = ($type eq "simple") || ($type eq "notify") ? "&"            : q{};
 
+    my $deplist  = join(q{ }, @$depends);
+    my $depchunk = q{};
+    foreach my $depname (@$depends) {
+        $depchunk .= "if ! ckdep \"$depname\"; then "
+                  . "echo 'Error: failed dependency on service' $name; exit 1; fi\n";
+    }
     my $prestartchunk = q{};
     if (@$prerun) {
         $prestartchunk
@@ -995,6 +1003,7 @@ sub add {
 # Default-Stop:      0 1 6
 # Short-Description: $title
 ### END INIT INFO
+# Depends:           $deplist
 
 set +e
 umask 022
@@ -1015,7 +1024,7 @@ elif [ -f /etc/rc.d/init.d/functions ] ; then
     START_CMD="daemon --pidfile \$PID_FILE --check nohup \$DAEMON \$DOPTS </dev/null >\$LOG_FILE 2>&1 $bgflag_rh"
 elif [ -f /lib/lsb/init-functions ] ; then
     . /lib/lsb/init-functions
-    START_CMD="start-stop-daemon --start --quiet --oknodo --pidfile \$PID_FILE $bgflag_ub --exec \$DAEMON -- \$DOPTS"
+    START_CMD="start-stop-daemon --start --quiet --oknodo --pidfile \$PID_FILE --make-pidfile $bgflag_ub --exec \$DAEMON -- \$DOPTS"
 else
     echo "*** init functions not available" 1>&2
     exit 5
@@ -1025,9 +1034,10 @@ STOP_CMD="killproc -p \$PID_FILE $daemon"
 if command -v status_of_proc >/dev/null 2>&1 ; then
     STATUS_CMD="status_of_proc -p \$PID_FILE \$DAEMON \$NAME"
 else
-    ckstat() { ps wax | grep -v grep | grep -q -1 $daemon ; }
+    ckstat() { ps wax | grep -v grep | grep -q $daemon ; }
     STATUS_CMD=ckstat
 fi
+ckdep() { ps wax | grep -v grep | grep -q \$1 ; }
 
 if ! command -v log_daemon_msg >/dev/null 2>&1 ; then
     log_action_msg() { echo "--- " \$*; }
@@ -1052,6 +1062,7 @@ case "\$1" in
         echo "\$NAME already running" 1>&2
         exit 0
     fi
+    $depchunk
     $prestartchunk
     log_daemon_msg "Starting   $title" "\$NAME" || true
     if \$START_CMD ; then
@@ -1211,6 +1222,7 @@ sub load {
     $this->{postrun}  = [];
     $this->{prestop}  = [];
     $this->{poststop} = [];
+    $this->{depends}  = [];
     $this->{running}  = 0;
     $this->{on_boot}  = 0;
 
@@ -1294,6 +1306,7 @@ sub load {
         $this->{type}  = $1 if $line =~ m{^\s*TYPE=\s*(.+?)\s*$};
         $dopts         = $1 if $line =~ m{^\s*DOPTS=\s*\'?(.+?)\'?\s*$};
         $daemon        = $1 if $line =~ m{^\s*DAEMON=\s*(.+?)\s*$};
+        $this->{depends} = [split(/\s+/, $1)] if $line =~ m{^\s*#\s*depends:\s+(.+?)\s*$}i;
     }
     $dopts =~ s{'"('+)"'}{$1}g; # un-do single-quote protection
     close UF;
