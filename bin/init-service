@@ -121,20 +121,20 @@ sub do_status {
     print "Init File: " . $svc->initfile . "\n";
     print "Type:      " . $svc->type . "\n";
     print "Title:     " . $svc->title . "\n";
-    my $prerun = $svc->prerun();
-    if (ref $prerun) {
-        print "Pre-run:\n    " . join("    \n", @$prerun) . "\n";
+    my @prerun = $svc->prerun();
+    if (@prerun) {
+        print "Pre-run:\n    " . join("    \n", @prerun) . "\n";
     }
     else {
-        print "Pre-run:   $prerun\n";
+        print "Pre-run:\n";
     }
     print "Run:       " . $svc->runcmd() . "\n";
-    my $postrun = $svc->postrun();
-    if (ref $postrun) {
-        print "Post-run:\n    " . join("    \n", @$postrun) . "\n";
+    my @postrun = $svc->postrun();
+    if (@postrun) {
+        print "Post-run:\n    " . join("    \n", @postrun) . "\n";
     }
     else {
-        print "Post-run:  $postrun\n";
+        print "Post-run:\n";
     }
 }
 
