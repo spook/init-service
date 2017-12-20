@@ -17,6 +17,7 @@ GetOptions($opts,
             "postrun|o=s@",
             "prestop|P=s@",
             "poststop|O=s@",
+            "force|f",
             "enable|e",
             "start|s",
             ) or usage("*** Command options error", 1);
@@ -36,7 +37,8 @@ $func eq 'disable'    ? $svc->disable($name)           :
 $func eq 'enable'     ? $svc->enable($name)            :
 $func eq 'is-enabled' ? is_enabled($svc, $name, $opts) :
 $func eq 'is-running' ? is_running($svc, $name, $opts) :
-$func eq 'remove'     ? $svc->remove($name)            :
+$func eq 'remove'     ? $svc->remove(name => $name, 
+                              force => $opts->{force}) :
 $func eq 'start'      ? $svc->start($name)             :
 $func eq 'status'     ? do_status($svc, $name, $opts)  :
 $func eq 'stop'       ? $svc->stop($name)              :
@@ -72,6 +74,7 @@ sub usage {
     -r --runcmd CMD   Command and args to run the service
     -t --type TYPE    Type of service, one of: simple forking notify oneshot
     -d --title DSC    Short description of the service
+    -f --force        Force the add even if service exists
     -p --prerun CMD   Command and args to run before starting the service
     -o --postrun CMD  Command and args to run after starting the service
     -P --prestop CMD  Command and args to run before stopping the service
@@ -100,6 +103,7 @@ sub do_add {
               -poststop => $opts->{poststop} || [],
               -enable   => $opts->{enable}   || 0,
               -start    => $opts->{start}    || 0,
+              -force    => $opts->{force}    || 0,
              );
 }
 

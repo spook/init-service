@@ -43,9 +43,10 @@ SKIP: {
         type     => $svc_a_typ,
         title    => $svc_a_ttl,
         runcmd   => $svc_a_run,
+        force    => 1
     );
     BAIL_OUT "Cannot add service A to system: " . $svc_a->error if $svc_a->error;
-    ok 1, "Service A added to system";
+    ok 1, "Service A added to system using " . $svc_a->initsys;
 
     diag "--- Create dummy service B ---";
     my $svc_b_nam = "test-030-b";
@@ -68,10 +69,11 @@ SKIP: {
         type     => $svc_b_typ,
         title    => $svc_b_ttl,
         runcmd   => $svc_b_run,
+        force    => 1,
         depends  => $svc_a_nam  # Depends on A  *** This is the thing we're testing ***
     );
     BAIL_OUT "Cannot add service B to system: " . $svc_b->error if $svc_b->error;
-    ok 1, "Service B added to system";
+    ok 1, "Service B added to system using " . $svc_b->initsys;
 
     diag "--- Test read-back of service with depends ---";
     # Reload, check if disabled

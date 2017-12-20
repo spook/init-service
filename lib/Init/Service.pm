@@ -44,6 +44,7 @@ use constant OPTS_NEW => {
     enable   => 0,
     start    => 0,
     depends  => \&_ok_name_list,
+    force    => 0,
 };
 use constant OPTS_ADD => {
     DEFAULT  => "name",
@@ -123,7 +124,8 @@ sub new {
     bless $this, $class;
 
     # Create or load on new
-    $this->add()  if $opts{name} &&  $opts{runcmd};
+    $this->add(force => $opts{force})
+                  if $opts{name} &&  $opts{runcmd};
     return $this  if $this->{err};
     $this->load() if $opts{name} && !$opts{runcmd};
     return $this  if $this->{err};
@@ -360,6 +362,7 @@ sub add {
 
     # Daemon reload
     my $out = qx(systemctl daemon-reload 2>&1);
+    $! ||= 0;
     return $this->{err} = "Error on daemon-reload: $!\n\t$out"
         if $?;
 
@@ -381,6 +384,7 @@ sub disable {
     return $this->{err} = "Missing service name" unless $this->{name};
 
     my $out = qx(systemctl disable $this->{name}.service 2>&1);
+    $! ||= 0;
     return $this->{err} = "Cannot disable $this->{name}: $!\n\t$out"
         if $?;
 
@@ -394,6 +398,7 @@ sub enable {
     return $this->{err} if $this->{err};
     return $this->{err} = "Missing service name" unless $this->{name};
     my $out = qx(systemctl enable $this->{name}.service 2>&1);
+    $! ||= 0;
     return $this->{err} = "Cannot enable $this->{name}: $!\n\t$out"
         if $?;
     $this->{on_boot} = 1;
@@ -499,6 +504,7 @@ sub remove {
     return $this->{err} = "No such service $name"
         if !-e $initfile && !$opts{force};
     my $n = unlink $initfile;
+    $! ||= 0;
     return $this->{err} = "Cannot remove service $name: $!" unless $n;
 
     # Clear all
@@ -525,6 +531,7 @@ sub start {
     my $name = $this->{name};
 
     my $out = qx(systemctl start $name.service 2>&1);
+    $! ||= 0;
     return $this->{err} = "Cannot start $name: $!\n\t$out"
         if $?;
     $this->{running} = 1;
@@ -539,6 +546,7 @@ sub stop {
     my $name = $this->{name};
 
     my $out = qx(systemctl stop $name.service 2>&1);
+    $! ||= 0;
     return $this->{err} = "Cannot stop $name: $!\n\t$out"
         if $?;
     $this->{running} = 0;
@@ -572,7 +580,7 @@ sub add {
     my $predep = q{};
     foreach my $name (@$depends) {
         $predep .= "    # Depends\n" unless $predep;
-        $predep .= "    if ! service $name status 2>/dev/null | grep -q running; then "
+        $predep .= "    if ! initctl status $name 2>/dev/null | grep -q running; then "
                  . "echo 'Failed dependency on service' $name; exit 1; fi\n";
     }
     $predep .= "    # End Depends\n" if $predep;
@@ -823,7 +831,7 @@ sub load {
             my $line = shift @{$this->{prerun}};
             last unless $line;
             last if $line eq "# End Depends";
-            next unless $line =~ m{if ! service (\S+) status};
+            next unless $line =~ m{if ! initctl status (\S+)};
             push @{$this->{depends}}, $1;
         }
     }
@@ -858,6 +866,7 @@ sub remove {
     return $this->{err} = "No such service $name"
         if !-e $initfile && !$opts{force};
     my $n = unlink $initfile;
+    $! ||= 0;
     return $this->{err} = "Cannot remove service $name: $!" unless $n;
 
     # Clear all
@@ -884,6 +893,7 @@ sub start {
     my $name = $this->{name};
 
     my $out = qx(start $this->{name} 2>&1);
+    $! ||= 0;
     $? = 0 if $out =~ m{already running};
     return $this->{err} = "Cannot start $name: ($!) $out"
         if $?;
@@ -899,6 +909,7 @@ sub stop {
     my $name = $this->{name};
 
     my $out = qx(stop $name 2>&1);
+    $! ||= 0;
     $? = 0 if $out =~ m{Unknown instance};
     return $this->{err} = "Cannot stop $name: ($!) $out"
         if $?;
@@ -1157,14 +1168,18 @@ sub disable {
     my $cmdchk = "$this->{root}/sbin/chkconfig";
     if (-x $cmdurc) {
         my $out = qx($cmdurc -f $this->{name} remove 2>&1);
+        $! ||= 0;
         return $this->{err} = "Cannot clear init links for $this->{name}: $!\n\t$out" if $?;
         $out = qx($cmdurc $this->{name} stop 72 0 1 2 3 4 5 6 S . 2>&1);
+        $! ||= 0;
         return $this->{err} = "Cannot stop init links for $this->{name}: $!\n\t$out" if $?;
     }
     elsif (-x $cmdchk) {
         my $out = qx($cmdchk --levels 0123456 $this->{name} off 2>&1) || q{};
+        $! ||= 0;
         return $this->{err} = "Cannot set levels off for $this->{name}: $!\n\t$out" if $?;
         $out = qx($cmdchk --del $this->{name} 2>&1) || q{};
+        $! ||= 0;
         return $this->{err} = "Cannot delete service for $this->{name}: $!\n\t$out" if $?;
 
     }
@@ -1188,12 +1203,15 @@ sub enable {
     my $cmdchk = "$this->{root}/sbin/chkconfig";
     if (-x $cmdurc) {
         my $out = qx($cmdurc $this->{name} defaults 28 72 2>&1);
+        $! ||= 0;
         return $this->{err} = "Cannot add init links for $this->{name}: $!\n\t$out" if $?;
     }
     elsif (-x $cmdchk) {
         my $out = qx($cmdchk --add $this->{name} 2>&1) || q{};
+        $! ||= 0;
         return $this->{err} = "Cannot add service for $this->{name}: $!\n\t$out" if $?;
         $out = qx($cmdchk --level 2345 $this->{name} on 2>&1) || q{};
+        $! ||= 0;
         return $this->{err} = "Cannot set levels on for $this->{name}: $!\n\t$out" if $?;
     }
     else {
@@ -1372,15 +1390,19 @@ sub remove {
     if (-x $cmdurc) {
         # update-rc.d : script goes first then links
         my $n = unlink $initfile;
+        $! ||= 0;
         return $this->{err} = "Cannot remove service $name: $!" unless $n;
         my $out = qx($cmdurc $name remove 2>&1);
+        $! ||= 0;
         return $this->{err} = "Cannot remove init links for $name: $!\n\t$out" if $?;
     }
     elsif (-x $cmdchk) {
         # chkconfig : links go first then script
         my $out = qx($cmdchk --del $name 2>&1) || q{};
+        $! ||= 0;
         return $this->{err} = "Cannot remove init links for $name: $!\n\t$out" if $?;
         my $n = unlink $initfile;
+        $! ||= 0;
         return $this->{err} = "Cannot remove service $name: $!" unless $n;
     }
     else {
@@ -1413,6 +1435,7 @@ sub start {
     # Run the init's own start command
     my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
     my $out = qx($this->{initfile} start 2>&1);
+    $! ||= 0;
     return $this->{err} = "Cannot start $name: $!\n\t$out"
         if $?;
     $this->{running} = 1;
@@ -1429,6 +1452,7 @@ sub stop {
     # Run the init's own stop command
     my $initfile = $this->{initfile} = "$this->{root}/etc/init.d/$name";
     my $out = qx($this->{initfile} stop 2>&1);
+    $! ||= 0;
     return $this->{err} = "Cannot stop $name: $!\n\t$out"
         if $?;
     $this->{running} = 0;
