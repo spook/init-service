@@ -327,7 +327,6 @@ sub add {
     print UF "Description=$title\n";
     foreach my $dep (@$depends) {
         print UF "Requisite=$dep.service\n";
-#        print UF "BindsTo=$dep.service\n";
     }
     print UF "After=network.target syslog.target\n";
     foreach my $dep (@$depends) {

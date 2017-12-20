@@ -159,28 +159,34 @@ SKIP: {
 
     diag "--- Given A and B are running, when I stop A, ";
     diag "    first B is stopped then A stops";
-    # Given...
-    is $svc_a->stop(), q{}, "  Reset A";
-    is $svc_b->stop(), q{}, "  Reset B";
-    is $svc_a->start(), q{}, "  Start A";
-    is $svc_b->start(), q{}, "  Start B";
-    is $svc_a->load(), q{}, "  Reload A";   # reload to be sure of status
-    is $svc_b->load(), q{}, "  Reload B";   # reload to be sure of status
-    ok $svc_a->running, "  A is running";
-    ok $svc_b->running, "  B is running";
-    # when...
-    is $svc_a->stop(), q{}, "  Stop A";
-    # then...
-    is $svc_a->load(), q{}, "  Reload A";   # reload to be sure of status
-    is $svc_b->load(), q{}, "  Reload B";   # reload to be sure of status
-    ok !$svc_a->running, "  A is not running";
-    ok !$svc_b->running, "  B is not running";
+    SKIP: {
+        skip "Service-stop monitoring not supported under SysV", 13
+            if $svc_a->initsys eq Init::Service::INIT_SYSTEMV;
+        # Given...
+        is $svc_a->stop(), q{}, "  Reset A";
+        is $svc_b->stop(), q{}, "  Reset B";
+        is $svc_a->start(), q{}, "  Start A";
+        is $svc_b->start(), q{}, "  Start B";
+        is $svc_a->load(), q{}, "  Reload A";   # reload to be sure of status
+        is $svc_b->load(), q{}, "  Reload B";   # reload to be sure of status
+        ok $svc_a->running, "  A is running";
+        ok $svc_b->running, "  B is running";
+        # when...
+        is $svc_a->stop(), q{}, "  Stop A";
+        # then...
+        is $svc_a->load(), q{}, "  Reload A";   # reload to be sure of status
+        is $svc_b->load(), q{}, "  Reload B";   # reload to be sure of status
+        ok !$svc_a->running, "  A is not running";
+        ok !$svc_b->running, "  B is not running";
+    }
 
     diag "--- Given A and B are running, when I kill A, ";
-    diag "    then B is stopped (except for SysVinit)";
+    diag "    then B is stopped";
     SKIP: {
-        skip "Service monitoring not supported by SysV", 13
+        skip "Service failure monitoring not supported under SysV", 13
             if $svc_a->initsys eq Init::Service::INIT_SYSTEMV;
+        skip "Service failure monitoring not supported under systemd", 13
+            if $svc_a->initsys eq Init::Service::INIT_SYSTEMD;
 
         # Given...
         is $svc_a->stop(), q{}, "  Reset A";
