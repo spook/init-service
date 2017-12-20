@@ -1039,7 +1039,11 @@ else
     echo "*** init functions not available" 1>&2
     exit 5
 fi
-STOP_CMD="killproc -p \$PID_FILE $daemon"
+if [ -f \$PID_FILE ]; then
+    STOP_CMD="killproc -p \$PID_FILE $daemon"
+else
+    STOP_CMD="killproc $daemon"
+fi
 
 if command -v status_of_proc >/dev/null 2>&1 ; then
     STATUS_CMD="status_of_proc -p \$PID_FILE \$DAEMON \$NAME"
@@ -1100,7 +1104,7 @@ case "\$1" in
 
   reload)
     log_daemon_msg "Reloading $title" "\$NAME" || true
-    if start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile \$PID_FILE --exec \$DAEMON ; then
+    if start-stop-daemon --stop --signal 1 --quiet --oknodo --pidfile \$PID_FILE  --make-pidfile --exec \$DAEMON ; then
         log_end_msg 0 || true
     else
         log_end_msg 1 || true
@@ -1321,9 +1325,9 @@ sub load {
 
         $this->{title} = $1 if $line =~ m{^\s*#\s*short-description:\s+(.+?)\s*$}i;
         $this->{type}  = $1 if $line =~ m{^\s*TYPE=\s*(.+?)\s*$};
-        $dopts         = $1 if $line =~ m{^\s*DOPTS=\s*\'?(.+?)\'?\s*$};
+        $dopts         = $1 if $line =~ m{^\s*DOPTS=\s*\'?(.*?)\'?\s*$};
         $daemon        = $1 if $line =~ m{^\s*DAEMON=\s*(.+?)\s*$};
-        $this->{depends} = [split(/\s+/, $1)] if $line =~ m{^\s*#\s*depends:\s+(.+?)\s*$}i;
+        $this->{depends} = [split(/\s+/, $1)] if $line =~ m{^\s*#\s*Depends:\s+(.+?)\s*$}i;
     }
     $dopts =~ s{'"('+)"'}{$1}g; # un-do single-quote protection
     close UF;
