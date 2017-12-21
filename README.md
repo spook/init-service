@@ -150,16 +150,23 @@ eventually I want this to be shell only.  Add no dependencies please!
 
 The best way to help is to test and fix this to work on various flavors
 and versions of Linux operating systems.  To date, these are tested:
-* Ubuntu 16.04
-* Ubuntu 14.04
-* Ubuntu 12.04
-* Ubuntu  8.04
+* CentOS  5.5
+* CentOS  6.5
+* CentOS  7.1
+* Debian  5.10
+* Debian  6.10
+* Debian  7.11
+* Debian  8.10
+* Debian  9.3
 * Ubuntu  6.06
-* CentOS 5.5
-* CentOS 6.5
-* CentOS 7.1
+* Ubuntu  8.04
+* Ubuntu 10.04
+* Ubuntu 12.04
+* Ubuntu 14.04
+* Ubuntu 16.04
+* Ubuntu 17.04
 
-More O/S's are welcome!  
+More O/S's are welcome!
 
 This project could always use more tests, too.
 

@@ -1,9 +1,27 @@
 #!/usr/bin/perl -w
 use strict;
-use FindBin qw/$Bin/;
-use lib "$Bin/../lib";
-use Init::Service;
 use Test::Harness;
+
+# Older Perl's don't have FindBin, so we must conditionally load it
+my $Bin;
+eval {
+    require FindBin;
+};
+if ($@) {
+    # Try to get bin from our path variable
+    $Bin = $1 if $0 =! m{^(.+?)/[^/]+$};
+    $Bin ||= "./";
+}
+else {
+    $FindBin::Bin ||= q{};  # Suppress "used only once" warning
+    $Bin = $FindBin::Bin;
+}
+
+# Get the rest of what we need
+require lib;
+lib->import("$Bin/../lib");
+require Init::Service;
+
 
 $ENV{HARNESS_OPTIONS} = "c";
 $Test::Harness::verbose = 1;

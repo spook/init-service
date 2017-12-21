@@ -6,7 +6,10 @@
 #   * you have the below listed nodes running
 #   * you can ssh into these nodes as root (I hope you have these behind a firewall!)
 #   * your ssh login is via a key, so no password is needed to login
-#   * you have 'make' installed on each box
+#   * you have 'make' and 'rsync' installed on each box
+#   * some minimal o/s builds have Perl but don't include the core Perl packages...
+#       Um... they're part of the language so they should be there!
+#       But if not, try installing just 'perl' or 'perl-modules' to get them.
 
 use strict;
 use FindBin qw/$Bin/;
@@ -23,6 +26,11 @@ my @nodes = qw/
     ub1004
     ub0804
     ub0606
+    de9
+    de8
+    de7
+    de6
+    de5
     ce7
     ce6
     ce5
@@ -44,7 +52,7 @@ foreach my $node (@nodes) {
     my $out = qx($cmd 2>&1);
     my $sync_ok = !$?;
     ok $sync_ok, "sync";
-    diag "Sync errors:\n\t$out" if !$sync_ok;
+    diag "Sync output:\n\t$out" if !$sync_ok;
 
     # Hop over, run tests
     note "  Test on $node...";
@@ -54,7 +62,7 @@ foreach my $node (@nodes) {
         $out = qx(ssh $user\@$node test/init-service/t/all 2>&1);
         $test_ok = !$?;
         ok $test_ok, "test";
-        diag "Test errors:\n\t$out" if !$test_ok;
+        diag "Test output:\n\t$out" if !$test_ok;
     }
 
     # Install the kit on that node
@@ -72,7 +80,7 @@ foreach my $node (@nodes) {
             $out = qx{ssh $user\@$node '(cd test/init-service; $cmd)' 2>&1};
             $inst_ok = !$?;
             ok $inst_ok, "install - $cmd";
-            diag "Errors:\n\t$out" if !$inst_ok;
+            diag "Output:\n\t$out" if !$inst_ok;
             last if !$inst_ok;
         }
     }
