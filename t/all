@@ -1,0 +1,11 @@
+#!/usr/bin/perl -w
+use strict;
+use FindBin qw/$Bin/;
+use lib "$Bin/../lib";
+use Init::Service;
+use Test::Harness;
+
+$ENV{HARNESS_OPTIONS} = "c";
+$Test::Harness::verbose = 1;
+runtests(glob("$Bin/*.t"));
+
