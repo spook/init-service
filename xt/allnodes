@@ -1,6 +1,12 @@
 #!/usr/bin/perl -w
 # Runs all tests on all test nodes
 #  I wrote this 'cuz I find ansible to be a pain for simple things like this
+#
+#  Requires:
+#   * you have the below listed nodes running
+#   * you can ssh into these nodes as root (I hope you have these behind a firewall!)
+#   * your ssh login is via a key, so no password is needed to login
+#   * you have 'make' installed on each box
 
 use strict;
 use FindBin qw/$Bin/;
