@@ -1,0 +1,79 @@
+#!/usr/bin/perl -w
+# Runs all tests on all test nodes
+#  I wrote this 'cuz I find ansible to be a pain for simple things like this
+
+use strict;
+use FindBin qw/$Bin/;
+use Test::More;
+
+my $Top = "$Bin/../../init-service";
+my $user = "root";  # Must be for init system tests
+
+my @nodes = qw/
+    ub1704
+    ub1604
+    ub1404
+    ub1204
+    ub1004
+    ub0804
+    ub0606
+    ce7
+    ce6
+    ce5
+    /;
+
+foreach my $node (@nodes) {
+    note "=" x (10+length($node));
+    note "Test node $node";
+    note " ";
+
+    # Sync latest code
+    note "  Sync to $node...";
+    my $cmd = "rsync -Cavr "
+            . " --delete"
+            . " --exclude='*/blib'"
+            . " --exclude 'Makefile'"
+            . " --exclude='*META*'"
+            . " $Top  $user\@$node:test/";
+    my $out = qx($cmd 2>&1);
+    my $sync_ok = !$?;
+    ok $sync_ok, "sync";
+    diag "Sync errors:\n\t$out" if !$sync_ok;
+
+    # Hop over, run tests
+    note "  Test on $node...";
+    my $test_ok = !$?;
+    SKIP: {
+        skip "Won't run tests if sync fails", 1 unless $sync_ok;
+        $out = qx(ssh $user\@$node test/init-service/t/all 2>&1);
+        $test_ok = !$?;
+        ok $test_ok, "test";
+        diag "Test errors:\n\t$out" if !$test_ok;
+    }
+
+    # Install the kit on that node
+    note "  Install on $node...";
+    my $inst_ok = !$?;
+    SKIP: {
+        skip "Won't install if test fails", 5 unless $test_ok;
+
+        foreach my $cmd ((
+                "perl Makefile.PL",
+                "make",
+                "make test",
+                "make install",
+                "make clean")) {
+            $out = qx{ssh $user\@$node '(cd test/init-service; $cmd)' 2>&1};
+            $inst_ok = !$?;
+            ok $inst_ok, "install - $cmd";
+            diag "Errors:\n\t$out" if !$inst_ok;
+            last if !$inst_ok;
+        }
+    }
+
+    note " ";
+    note " ";
+}
+
+done_testing();
+
