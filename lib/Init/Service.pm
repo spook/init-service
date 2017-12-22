@@ -1174,9 +1174,17 @@ sub disable {
         my $out = qx($cmdurc -f $this->{name} remove 2>&1);
         $! ||= 0;
         return $this->{err} = "Cannot clear init links for $this->{name}: $!\n\t$out" if $?;
-        $out = qx($cmdurc $this->{name} stop 72 0 1 2 3 4 5 6 S . 2>&1);
-        $! ||= 0;
-        return $this->{err} = "Cannot stop init links for $this->{name}: $!\n\t$out" if $?;
+        # The update-rc.d man page says 
+        #    "The correct way to disable services is to configure the service
+        #     as stopped in all runlevels in which it is started by default."
+        # However, I've been undable to get it to work.  Perhaps because
+        # insserv is used on the systems I tried.  Regardless,
+        # just nuking the links does the trick, and because this service
+        # probably was NOT installed in the usual way, we'll be OK. 
+        # So don't do the below - leave it commented out:
+        #  $out = qx($cmdurc $this->{name} stop 72 0 1 2 3 4 5 6 S . 2>&1);
+        #  $! ||= 0;
+        #  return $this->{err} = "Cannot stop init links for $this->{name}: $!\n\t$out" if $?;
     }
     elsif (-x $cmdchk) {
         my $out = qx($cmdchk --levels 0123456 $this->{name} off 2>&1) || q{};
