@@ -26,6 +26,7 @@ my @nodes = qw/
     ub1004
     ub0804
     ub0606
+    sl12
     de9
     de8
     de7
@@ -36,7 +37,7 @@ my @nodes = qw/
     ce5
     /;
 
-foreach my $node (@nodes) {
+foreach my $node (@ARGV? @ARGV : @nodes) {
     note "=" x (10+length($node));
     note "Test node $node";
     note " ";

@@ -158,6 +158,7 @@ and versions of Linux operating systems.  To date, these are tested:
 * Debian  7.11
 * Debian  8.10
 * Debian  9.3
+* SLES   12.02
 * Ubuntu  6.06
 * Ubuntu  8.04
 * Ubuntu 10.04
