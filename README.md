@@ -150,6 +150,7 @@ eventually I want this to be shell only.  Add no dependencies please!
 
 The best way to help is to test and fix this to work on various flavors
 and versions of Linux operating systems.  To date, these are tested:
+* Arch Linux 2017.12
 * CentOS  5.5
 * CentOS  6.5
 * CentOS  7.1

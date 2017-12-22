@@ -35,6 +35,7 @@ my @nodes = qw/
     ce7
     ce6
     ce5
+    ar17
     /;
 
 foreach my $node (@ARGV? @ARGV : @nodes) {
